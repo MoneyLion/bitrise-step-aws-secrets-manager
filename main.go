@@ -2,30 +2,41 @@ package main
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2"
 	"os"
-	"os/exec"
 )
 
 func main() {
-	fmt.Println("This is the value specified for the input 'example_step_input':", os.Getenv("example_step_input"))
+	fmt.Println("AWS Secrets Manager")
 
+	// Step 1
 	//
-	// --- Step Outputs: Export Environment Variables for other Steps:
-	// You can export Environment Variables for other Steps with
-	//  envman, which is automatically installed by `bitrise setup`.
-	// A very simple example:
-	cmdLog, err := exec.Command("bitrise", "envman", "add", "--key", "EXAMPLE_STEP_OUTPUT", "--value", "the value you want to share").CombinedOutput()
-	if err != nil {
-		fmt.Printf("Failed to expose output with envman, error: %#v | output: %s", err, cmdLog)
-		os.Exit(1)
-	}
-	// You can find more usage examples on envman's GitHub page
-	//  at: https://github.com/bitrise-io/envman
+	// First, access these input from Bitrise secrets:
+	//	- AWS Access Key ID
+	//	- AWS Secret Access Key
+	//	- AWS IAM role ARN
+	//
+	// Using the input, and AWS SDK for Go, assume an IAM role.
+	// This role assumption is required since the role has the
+	// permission to read the secrest.
 
+
+	// Step 2
 	//
-	// --- Exit codes:
-	// The exit code of your Step is very important. If you return
-	//  with a 0 exit code `bitrise` will register your Step as "successful".
-	// Any non zero exit code will be registered as "failed" by `bitrise`.
+	// Accept the list of secrets to fetch from bitrise.yml.
+	//
+	// Using the input, and AWS SDK for Go, fetch the secrets from
+	// AWS Secrets Manager.
+	//
+	// Store the results in a variable first.
+
+
+	// Step 3
+	//
+	// Take the result from Step 2, and store it into environment variable.
+	// This would allow the secrets to be used in subsequent build steps.
+	// Might have to refer to Bitrise on how it propagates the variables
+	// to the build steps.
+
 	os.Exit(0)
 }
