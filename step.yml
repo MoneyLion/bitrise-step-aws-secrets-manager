@@ -5,50 +5,44 @@ description: |
 website: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager
 source_code_url: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager
 support_url: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager/issues
-host_os_tags:
-  - osx-10.10
-  - ubuntu-16.04
+
 type_tags:
   - utility
 
 is_requires_admin_user: true
 is_always_run: false
 is_skippable: false
-run_if: ""
-
-deps:
-  brew:
-  - name: git
-  - name: wget
-  apt_get:
-  - name: git
-  - name: wget
-
 
 toolkit:
   go:
     package_name: moneylion.com/security/bitrise-step-aws-secrets-manager
 
-
 inputs:
-  - example_step_input: Default Value - you can leave this empty if you want to
+  - aws_access_key_id: $AWS_ACCESS_KEY_ID
     opts:
-      title: "Example Step Input"
-      summary: Summary. No more than 2-3 sentences.
-      description: |
-        Description of this input.
-
-        Can be Markdown formatted text.
-      is_expand: true
+      title: AWS Access Key ID
+      summary: AWS Access Key ID
+      description: The access key ID for your AWS IAM user
       is_required: true
-      value_options: []
-
-outputs:
-  - EXAMPLE_STEP_OUTPUT:
+      is_sensitive: true
+  - aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
     opts:
-      title: "Example Step Output"
-      summary: Summary. No more than 2-3 sentences.
-      description: |
-        Description of this output.
-
-        Can be Markdown formatted text.
+      title: AWS Secret Access Key
+      summary: AWS Secret Access Key
+      description: The secret access key for your AWS IAM user
+      is_required: true
+      is_sensitive: true
+  - aws_default_region: $AWS_DEFAULT_REGION
+    opts:
+      title: AWS region
+      summary: AWS region
+      description: The AWS region where the secrets are created
+      is_required: true
+      is_sensitive: true
+  - aws_role_arn: $AWS_ROLE_ARN
+    opts:
+      title: AWS Role ARN
+      summary: ARN of AWS IAM role to assume
+      description: The ARN of AWS IAM role to assume. This role should have the necessary permission to read secrets from AWS Secrets Manager.
+      is_required: true
+      is_sensitive: true

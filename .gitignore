@@ -1,2 +1,5 @@
+# Bitrise secrets
 .bitrise*
-.gows.user.yml
+
+# Go
+/vendor/
