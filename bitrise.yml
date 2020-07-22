@@ -19,7 +19,9 @@ workflows:
         - content: |
             #!/bin/bash
             echo "Just an example 'secrets' print."
-            echo "The value of 'A_SECRET_PARAM' is: $A_SECRET_PARAM"
+            echo "The value of 'aws_AccessKeyID' is: $aws_AccessKeyID"
+            echo "The value of 'aws_scretAccessKey' is: $aws_scretAccessKey"
+            echo "The value of 'iamRoleArn' is: $iamRoleArn"
     - change-workdir:
         title: Switch working dir to test / _tmp dir
         description: |-

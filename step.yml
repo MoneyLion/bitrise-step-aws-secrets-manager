@@ -31,18 +31,34 @@ toolkit:
 
 
 inputs:
-  - example_step_input: Default Value - you can leave this empty if you want to
+  - AWS Access Key: $aws_AccessKeyID
     opts:
-      title: "Example Step Input"
-      summary: Summary. No more than 2-3 sentences.
+      title: "AWS Access Key"
+      summary: AWS Access Key
       description: |
         Description of this input.
 
         Can be Markdown formatted text.
       is_expand: true
       is_required: true
-      value_options: []
+  - aws_scretAccessKey : $aws_scretAccessKey
+      title: "AWS Secret Access Key"
+      summary: AWS Secret Access Key
+      description: |
+        Description of this input.
 
+        Can be Markdown formatted text.
+      is_expand: true
+      is_required: true
+  - iamRoleArn: $iamRoleArn
+      title: "AWS iamRoleArn"
+      summary: AWS iamRoleArn
+      description: |
+        Description of this input.
+
+        Can be Markdown formatted text.
+      is_expand: true
+      is_required: true  
 outputs:
   - EXAMPLE_STEP_OUTPUT:
     opts:
