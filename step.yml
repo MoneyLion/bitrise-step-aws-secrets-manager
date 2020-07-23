@@ -18,47 +18,40 @@ run_if: ""
 
 deps:
   brew:
-  - name: git
-  - name: wget
+  - name: awscli
+    bin_name: aws
   apt_get:
-  - name: git
-  - name: wget
-
+  - name: awscli
+    bin_name: aws
 
 toolkit:
   go:
     package_name: moneylion.com/security/bitrise-step-aws-secrets-manager
 
-
 inputs:
-  - AWS Access Key: $aws_AccessKeyID
+  - access_key_id: $aws_AccessKeyID
     opts:
       title: "AWS Access Key"
       summary: AWS Access Key
-      description: |
-        Description of this input.
-
-        Can be Markdown formatted text.
-      is_expand: true
+      description: Access key for your AWS/IAM user. Define this as a secret environment
+        variable in your workflow.
+      is_sensitive:  true
       is_required: true
-  - aws_scretAccessKey : $aws_scretAccessKey
-      title: "AWS Secret Access Key"
-      summary: AWS Secret Access Key
-      description: |
-        Description of this input.
-
-        Can be Markdown formatted text.
-      is_expand: true
+  - opts:
+      description: Secret key for your AWS/IAM user. Define this as a secret environment
+        variable in your workflow.
       is_required: true
-  - iamRoleArn: $iamRoleArn
-      title: "AWS iamRoleArn"
-      summary: AWS iamRoleArn
-      description: |
-        Description of this input.
-
-        Can be Markdown formatted text.
-      is_expand: true
-      is_required: true  
+      is_sensitive: true
+      summary: ""
+      title: AWS Secret Key
+    secret_access_key: $aws_secretAccessKey
+  - opts:
+      description: iam role for assume for your AWS/IAM user.
+      is_required: true
+      is_sensitive: true
+      summary: ""
+      title: AWS Secret Key
+    iam_role_arn: $iamRoleArn
 outputs:
   - EXAMPLE_STEP_OUTPUT:
     opts:

@@ -11,30 +11,15 @@ import (
 	"os"
 )
 
+type config struct {
+	aws_AccessKeyID string `env:"access_key_id"`
+	aws_secretAccessKey  string `env:"secret_access_key"`
+	iamRoleArn        string `env:"iam_role_arn"`
+	testconfig  string `mikitest`
+}
+
 func getSecret(myRoleArn string, region string) {
 	secretName := "KiuwanCredential"
-	//aws_AccessKeyID := "AKIAQNAVKXJMQJJ4I7W7"
-	//aws_secretAccessKey := "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"
-	//Create a Secrets Manager client
-	/*
-		svc := secretsmanager.New(session.New(&aws.Config{
-			Credentials: credentials.NewStaticCredentials(
-			aws_AccessKeyID,
-			aws_secretAccessKey,
-			"",),
-		}),
-		aws.NewConfig().WithRegion(region))
-	*/
-	/*sess := secretsmanager.New(session.New(&aws.Config{
-		Credentials: credentials.NewStaticCredentials(
-		aws_AccessKeyID,
-		aws_secretAccessKey,
-		"",),
-	}),
-	aws.NewConfig().WithRegion(region))
-	*/
-	// Create the credentials from AssumeRoleProvider to assume the role
-	// referenced by the “myRoleARN” ARN. Prompt for MFA token from stdin.
 	sess := session.Must(session.NewSession())
 	creds := stscreds.NewCredentials(sess, myRoleArn)
 
@@ -99,77 +84,22 @@ func getSecret(myRoleArn string, region string) {
 }
 
 func main() {
-	fmt.Println("The following Inputs from bitrise.secrets")
-	aws_AccessKeyID := os.Getenv("aws_AccessKeyID")
-	fmt.Println("'aws_AccessKeyID':", aws_AccessKeyID)
-	aws_secretAccessKey := os.Getenv("aws_scretAccessKey")
-	fmt.Println("'aws_secretAccessKey':", aws_secretAccessKey)
 
-	fmt.Println("AWS Secrets Manager")
+	var cfg config
+  	fmt.Println("The following Inputs from bitrise.secrets")
+  	aws_AccessKeyID := cfg.aws_AccessKeyID
+  	fmt.Println("'aws_AccessKeyID':", aws_AccessKeyID)
+  	aws_secretAccessKey := cfg.aws_secretAccessKey
+  	fmt.Println("'aws_secretAccessKey':", aws_secretAccessKey)
+  	fmt.Println("************* test config : ", cfg.testconfig)
 
-	iamRoleArn := "arn:aws:iam::027962030681:role/miki_limitedaccess"
+  	fmt.Println("AWS Secrets Manager")
+
+
+  	iamRoleArn := cfg.iamRoleArn
+  	ß
 	region := "us-east-2"
+
 	getSecret(iamRoleArn, region)
 
-	/*
-		secretName := "Kiuwan-Jira-API"
-		region := "us-east-1"
-		secret, _ := GetSecret(secretName)
-		fmt.Println("hello world")
-		fmt.Println(secret)
-	*/
-
-	// Step 1
-
-	//aws_secretAccessKey := "3Xu12+Bt7ewmeK7s3BNqDml1Zazcy3ebV3sUgvic"
-	//iamRoleArn := "arn:aws:iam::027962030681:role/miki_limitedaccess"
-	/*
-		var secretName,secretVersion,region string
-		flag.StringVar(&secretName, "name", "KiuwanCredential", "Name of secret")
-		flag.StringVar(&secretVersion, "version", "AWSCURRENT", "Version Stage (default: AWSCURRENT)")
-		flag.StringVar(&region, "region", "us-east-2", "AWS Region (default: us-east-1)")
-		flag.Parse()
-		if len(secretName) == 0 {
-			fmt.Println("Error: Secret name required.")
-			os.Exit(1)
-		}
-		sn := secretName
-		fmt.Println(sn)
-
-	*/
-
-	/*
-		sess := session.Must(session.NewSession())
-		creds := stscreds.NewCredentials(sess, iamRoleArn)
-		svc := secretsmanager.New(sess, &aws.Config{Credentials: creds})
-		svc := secretsmanager.New(session.New(),
-			aws.NewConfig().WithRegion(region))
-
-	*/
-	// First, access these input from Bitrise secrets:
-	//	- AWS Access Key ID
-	//	- AWS Secret Access Key
-	//	- AWS IAM role ARN
-	//
-	// Using the input, and AWS SDK for Go, assume an IAM role.
-	// This role assumption is required since the role has the
-	// permission to read the secrest.
-
-	// Step 2
-	//
-	// Accept the list of secrets to fetch from bitrise.yml.
-	//
-	// Using the input, and AWS SDK for Go, fetch the secrets from
-	// AWS Secrets Manager.
-	//
-	// Store the results in a variable first.
-
-	// Step 3
-	//
-	// Take the result from Step 2, and store it into environment variable.
-	// This would allow the secrets to be used in subsequent build steps.
-	// Might have to refer to Bitrise on how it propagates the variables
-	// to the build steps.
-
-	//os.Exit(0)
 }
