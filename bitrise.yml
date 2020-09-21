@@ -13,7 +13,6 @@ app:
   - BITRISE_STEP_GIT_CLONE_URL: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager.git
   - MY_STEPLIB_REPO_FORK_GIT_URL: $MY_STEPLIB_REPO_FORK_GIT_URL
 
-
 workflows:
   test:
     steps:
@@ -37,7 +36,7 @@ workflows:
         - path: ./_tmp
         - is_create_path: true
     - path::./:
-        title: Step Test
+        title: Step Test - AWS Secrets Manager
         description: |-
           The example input has a default value,
           you can overwrite it if you want to, just like we did below,
