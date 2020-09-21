@@ -9,6 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"encoding/json"
+	"os"
+	"os/exec"
 )
 
 type Configs struct {
@@ -103,9 +105,28 @@ if err != nil{
 var kuser, kpassword string
 kuser = fmt.Sprint( p["KiuwanUser"])
 kpassword = fmt.Sprint( p["KiuwanPassword"])
- fmt.Println (" *** extacted Kiuwan User is ", kuser)
- fmt.Println (" *** extacted Kiuwan Password is ", kpassword)
 
+if err := EnvmanAdd("KIUWAN_USERNAME", kuser); err != nil {
+		fmt.Println("Failed to store KIUWAN_USERNAME:", err)
+		os.Exit(1)
+	}
+
+	if err := EnvmanAdd("KIUWAN_PASSWORD", kpassword); err != nil {
+  		fmt.Println("Failed to store KIUWAN_USERNAME:", err)
+  		os.Exit(1)
+  	}
+}
+
+func EnvmanAdd(key, value string) error {
+	args := []string{"add", "-k", key, "-v", value}
+	return RunCommand("envman", args...)
+}
+func RunCommand(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func main() {
@@ -126,8 +147,8 @@ func main() {
   fmt.Println("'aws_secretAccessKey':", aws_secretAccessKey)
 
   fmt.Println("AWS Secrets Manager")
-	iamRoleArn := cfg.iamRoleArn
-	//iamRoleArn :="arn:aws:iam::027962030681:role/miki_limitedaccess"
+	//iamRoleArn := cfg.iamRoleArn
+	iamRoleArn :="arn:aws:iam::027962030681:role/miki_limitedaccess"
 	fmt.Println("'iamRoleArn':", iamRoleArn)
 	region := "us-east-1"
 	getSecret(iamRoleArn, region)

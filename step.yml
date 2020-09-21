@@ -39,13 +39,12 @@ inputs:
       is_required: true
   - aws_secret_access_key: $aws_secretAccessKey
     opts:
-      description: Secret ky for your AWS/IAM user. Define this as a secret environment
+      description: Secret key for your AWS/IAM user. Define this as a secret environment
         variable in your workflow.
       is_required: true
       is_sensitive: true
       summary: "AWS Secret Access Key"
       title: AWS Secret Key
-
   - iam_role_arn: $iamRoleArn
     opts:
       description: iam role for assume for your AWS/IAM user.
