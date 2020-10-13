@@ -1,5 +1,6 @@
 # Bitrise secrets
-.bitrise*
+.bitrise.secrets.*
+!.bitrise.secrets.sample.yml
 
 # Go
 /vendor/
