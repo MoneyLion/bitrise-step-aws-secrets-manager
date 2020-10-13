@@ -46,3 +46,23 @@ inputs:
       description: The ARN of AWS IAM role to assume. This role should have the necessary permission to read secrets from AWS Secrets Manager.
       is_required: true
       is_sensitive: true
+  - secret_list:
+    opts:
+      title: Secret list
+      summary: |
+        Newline separated list of secret. Each secret is delimited with hash symbol, consisting of the secret ARN, the secret's JSON object key, and the environment variable in which to store the corresponding JSON object value in.
+
+        Example: `arn:aws:secretsmanager:us-east-1:123456789012:secret:db-credential#username#USERNAME`.
+
+      description: |
+        The newline separated list of secrets to be fetched from AWS Secrets Manager.
+
+        Each secret itself consists of three components:
+
+          - The ARN of the secret. This can be either full ARN, or partial ARN, which contains only the name of the secret, without the six random character suffix.
+
+          - The secret's JSON object key. The JSON object key for identifying the value that we want to retrieve in the secret's JSON object.
+
+          - The environment variable to store the value in. The environment variable where the JSON object value, identified by the JSON object key, is stored in.
+
+      is_required: true

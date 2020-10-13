@@ -30,11 +30,16 @@ workflows:
           you can overwrite it if you want to, just like we did below,
           but the step would use the default value specified in the `step.yml`
           file if you would not specify another value.
+        inputs:
+          - secret_list: |
+              arn#username#USERNAME
+              arn#password#PASSWORD
     - script:
         inputs:
         - content: |
             #!/bin/bash
-            echo $TEST
+            echo $USERNAME
+            echo $PASSWORD
 
   # ----------------------------------------------------------------
   # --- workflows to Share this step into a Step Library

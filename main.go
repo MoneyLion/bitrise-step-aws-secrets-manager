@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 	AWS_SECRET_ACCESS_KEY = "aws_secret_access_key"
 	AWS_DEFAULT_REGION    = "aws_default_region"
 	AWS_ROLE_ARN          = "aws_role_arn"
+	SECRET_LIST           = "secret_list"
 )
 
 type localConfig struct {
@@ -26,6 +28,13 @@ type localConfig struct {
 	awsSecretAccessKey string
 	awsDefaultRegion   string
 	awsRoleArn         string
+	secretList         string
+}
+
+type secretListItem struct {
+	arn    string
+	key    string
+	envvar string
 }
 
 type simpleJson map[string]interface{}
@@ -48,6 +57,21 @@ func assumeRole(lcfg localConfig, awsConfig *aws.Config) {
 	stsSvc := sts.NewFromConfig(*awsConfig)
 	creds := stscreds.NewAssumeRoleProvider(stsSvc, lcfg.awsRoleArn)
 	awsConfig.Credentials = &aws.CredentialsCache{Provider: creds}
+	return
+}
+
+func parseSecretList(secretList string) (items []secretListItem) {
+	for _, secret := range strings.Split(secretList, "\n") {
+		if strings.TrimSpace(secret) == "" {
+			continue
+		}
+		secretComponents := strings.Split(secret, "#")
+		items = append(items, secretListItem{
+			arn:    secretComponents[0],
+			key:    secretComponents[1],
+			envvar: secretComponents[2],
+		})
+	}
 	return
 }
 
@@ -94,9 +118,8 @@ func main() {
 		awsSecretAccessKey: os.Getenv(AWS_SECRET_ACCESS_KEY),
 		awsDefaultRegion:   os.Getenv(AWS_DEFAULT_REGION),
 		awsRoleArn:         os.Getenv(AWS_ROLE_ARN),
+		secretList:         os.Getenv(SECRET_LIST),
 	}
-
-	var secretId = "--snip--"
 
 	awsConfig, err := buildAWSConfig(lcfg)
 	if err != nil {
@@ -105,15 +128,17 @@ func main() {
 
 	assumeRole(lcfg, &awsConfig)
 
-	secretString, err := fetchSecrets(secretId, awsConfig)
-	if err != nil {
-		panic(err)
-	}
+	for _, item := range parseSecretList(lcfg.secretList) {
+		secretString, err := fetchSecrets(item.arn, awsConfig)
+		if err != nil {
+			panic(err)
+		}
 
-	secretJson, err := loadJson(secretString)
-	if err != nil {
-		panic(err)
-	}
+		secretJson, err := loadJson(secretString)
+		if err != nil {
+			panic(err)
+		}
 
-	exportEnvVar(secretJson, "password", "TEST")
+		exportEnvVar(secretJson, item.key, item.envvar)
+	}
 }
