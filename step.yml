@@ -1,7 +1,12 @@
-title: AWS Secrets Manager
+title: Fetch secrets
 summary: Fetch secrets from AWS Secrets Manager
 description: |
-  Fetch secrets from AWS Secrets Manager
+  The main intention of this custom step is to allow us to store sensitive data on AWS Secrets Manager, and fetching them on-demand during Bitrise workflow execution.
+
+  When a Bitrise workflow runs, this step fetches the secrets from AWS Secrets Manager, based on the list of secrets provided as input.
+
+  Each secret stored on AWS Secrets Manager is represented as a JSON object. For each secret that it fetches, it then retrieve the JSON object value from the secret's JSON object, using a specified JSON object key. The value is then stored in an environment variable, exported and propagated to be consumed in subsequent steps in the workflow.
+
 website: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager
 source_code_url: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager
 support_url: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager/issues
