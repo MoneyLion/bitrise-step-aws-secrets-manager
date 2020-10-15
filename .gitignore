@@ -1,6 +1,3 @@
 # Bitrise secrets
 .bitrise.secrets.*
 !.bitrise.secrets.sample.yml
-
-# Go
-/vendor/
