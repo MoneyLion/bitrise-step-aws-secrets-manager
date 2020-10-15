@@ -12,6 +12,8 @@ Bitrise custom step to fetch secrets from AWS Secrets Manager.
 
   1. Create `.bitrise.secrets.yml` from the [sample](./.bitrise.secrets.sample.yml). Populate the necessary values.
 
+  1. In [bitrise.yml](./bitrise.yml), under the step titled "Step Test", specify the list of secrets that you want to fetch. Update as well the subsequent script step that echoes the secrets, referencing the environment variables that you use.
+
   1. Run `bitrise run test` to test the Bitrise step.
 
 ### Publishing
