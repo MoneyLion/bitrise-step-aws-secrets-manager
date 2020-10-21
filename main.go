@@ -39,6 +39,8 @@ type secretListItem struct {
 
 type secretValueJson map[string]string
 
+type secretCacheMap map[string]string
+
 func buildAWSConfig(lcfg localConfig) (awsConfig aws.Config, err error) {
 	awsConfig, err = config.LoadDefaultConfig(
 		config.WithRegion(lcfg.awsDefaultRegion),
@@ -72,6 +74,20 @@ func parseSecretList(secretList string) (items []secretListItem) {
 			envvar: secretComponents[2],
 		})
 	}
+	return
+}
+
+func cacher(secretCache secretCacheMap, secretId string, awsConfig aws.Config, fetcher func(string, aws.Config) (string, error)) (secretString string, err error) {
+	secretString, cached := secretCache[secretId]
+	if cached {
+		err = nil
+		return
+	}
+	secretString, err = fetcher(secretId, awsConfig)
+	if err != nil {
+		return
+	}
+	secretCache[secretId] = secretString
 	return
 }
 
@@ -128,8 +144,10 @@ func main() {
 
 	assumeRole(lcfg, &awsConfig)
 
+	secretCache := make(secretCacheMap)
+
 	for _, item := range parseSecretList(lcfg.secretList) {
-		secretString, err := fetchSecrets(item.arn, awsConfig)
+		secretString, err := cacher(secretCache, item.arn, awsConfig, fetchSecrets)
 		if err != nil {
 			panic(err)
 		}
