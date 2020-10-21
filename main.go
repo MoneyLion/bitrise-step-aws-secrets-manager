@@ -37,7 +37,7 @@ type secretListItem struct {
 	envvar string
 }
 
-type simpleJson map[string]interface{}
+type secretValueJson map[string]string
 
 func buildAWSConfig(lcfg localConfig) (awsConfig aws.Config, err error) {
 	awsConfig, err = config.LoadDefaultConfig(
@@ -95,19 +95,19 @@ func fetchSecrets(secretId string, awsConfig aws.Config) (secretString string, e
 	return
 }
 
-func loadJson(stringData string) (result simpleJson, err error) {
-	jsonData := []byte(stringData)
+func loadJson(secretString string) (result secretValueJson, err error) {
+	jsonData := []byte(secretString)
 	err = json.Unmarshal(jsonData, &result)
 	return
 }
 
-func exportEnvVar(data simpleJson, dataKey string, envVarKey string) (err error) {
+func exportEnvVar(data secretValueJson, dataKey string, envVarKey string) (err error) {
 	dataValue, ok := data[dataKey]
 	if !ok {
 		err = errors.New(dataKey + " not found in secret")
 		return
 	}
-	c := exec.Command("envman", "add", "--key", envVarKey, "--value", dataValue.(string))
+	c := exec.Command("envman", "add", "--key", envVarKey, "--value", dataValue)
 	err = c.Run()
 	return
 }
