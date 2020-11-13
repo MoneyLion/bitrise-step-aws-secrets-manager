@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -92,6 +93,7 @@ func cacher(secretCache secretCacheMap, secretId string, awsConfig aws.Config, f
 }
 
 func fetchSecrets(secretId string, awsConfig aws.Config) (secretString string, err error) {
+	fmt.Printf("Getting secret for %s\n", secretId)
 	secretString = ""
 	smSvc := secretsmanager.NewFromConfig(awsConfig)
 	secretValue, err := smSvc.GetSecretValue(
@@ -123,6 +125,7 @@ func exportEnvVar(data secretValueJson, dataKey string, envVarKey string) (err e
 		err = errors.New(dataKey + " not found in secret")
 		return
 	}
+	fmt.Printf("Storing secret value for key '%s' into $%s\n", dataKey, envVarKey)
 	c := exec.Command("envman", "add", "--key", envVarKey, "--value", dataValue)
 	err = c.Run()
 	return
