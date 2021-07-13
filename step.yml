@@ -23,27 +23,6 @@ toolkit:
     package_name: moneylion.com/security/bitrise-step-aws-secrets-manager
 
 inputs:
-  - aws_access_key_id: $AWS_ACCESS_KEY_ID
-    opts:
-      title: AWS Access Key ID
-      summary: AWS Access Key ID
-      description: The access key ID for your AWS IAM user
-      is_required: true
-      is_sensitive: true
-  - aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
-    opts:
-      title: AWS Secret Access Key
-      summary: AWS Secret Access Key
-      description: The secret access key for your AWS IAM user
-      is_required: true
-      is_sensitive: true
-  - aws_default_region: $AWS_DEFAULT_REGION
-    opts:
-      title: AWS region
-      summary: AWS region
-      description: The AWS region where the secrets are created
-      is_required: true
-      is_sensitive: true
   - aws_role_arn: $AWS_ROLE_ARN
     opts:
       title: AWS Role ARN

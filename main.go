@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -17,19 +16,13 @@ import (
 )
 
 const (
-	AWS_ACCESS_KEY_ID     = "aws_access_key_id"
-	AWS_SECRET_ACCESS_KEY = "aws_secret_access_key"
-	AWS_DEFAULT_REGION    = "aws_default_region"
-	AWS_ROLE_ARN          = "aws_role_arn"
-	SECRET_LIST           = "secret_list"
+	AWS_ROLE_ARN = "aws_role_arn"
+	SECRET_LIST  = "secret_list"
 )
 
 type localConfig struct {
-	awsAccessKeyId     string
-	awsSecretAccessKey string
-	awsDefaultRegion   string
-	awsRoleArn         string
-	secretList         string
+	awsRoleArn string
+	secretList string
 }
 
 type secretListItem struct {
@@ -41,20 +34,6 @@ type secretListItem struct {
 type secretValueJson map[string]string
 
 type secretCacheMap map[string]string
-
-func buildAWSConfig(lcfg localConfig) (awsConfig aws.Config, err error) {
-	awsConfig, err = config.LoadDefaultConfig(
-		config.WithRegion(lcfg.awsDefaultRegion),
-		config.WithCredentialsProvider{
-			CredentialsProvider: credentials.NewStaticCredentialsProvider(
-				lcfg.awsAccessKeyId,
-				lcfg.awsSecretAccessKey,
-				"",
-			),
-		},
-	)
-	return
-}
 
 func assumeRole(lcfg localConfig, awsConfig *aws.Config) {
 	stsSvc := sts.NewFromConfig(*awsConfig)
@@ -133,14 +112,11 @@ func exportEnvVar(data secretValueJson, dataKey string, envVarKey string) (err e
 
 func main() {
 	lcfg := localConfig{
-		awsAccessKeyId:     os.Getenv(AWS_ACCESS_KEY_ID),
-		awsSecretAccessKey: os.Getenv(AWS_SECRET_ACCESS_KEY),
-		awsDefaultRegion:   os.Getenv(AWS_DEFAULT_REGION),
-		awsRoleArn:         os.Getenv(AWS_ROLE_ARN),
-		secretList:         os.Getenv(SECRET_LIST),
+		awsRoleArn: os.Getenv(AWS_ROLE_ARN),
+		secretList: os.Getenv(SECRET_LIST),
 	}
 
-	awsConfig, err := buildAWSConfig(lcfg)
+	awsConfig, err := config.LoadDefaultConfig()
 	if err != nil {
 		panic(err)
 	}
