@@ -59,17 +59,17 @@ The custom step uses AWS SDK for Go v2 with the default config loader. This mean
   - Use static AWS credentials via environment variable, e.g. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
   - Use shared configuration files, e.g. `AWS_PROFILE`.
 
-To assume an IAM role before fetching secrets, you may specify the role's ARN via `AWS_IAM_ROLE_ARN` environment variable, or use the `aws_iam_role_arn` input:
+To assume an IAM role before fetching secrets, you may specify the role's ARN via `AWS_ROLE_ARN` environment variable, or through the `aws_role_arn` input:
 
 ```yaml
 workflows:
   foo:
     envs:
-      - AWS_IAM_ROLE_ARN: "arn:aws:role/some-role"  # This works
+      - AWS_ROLE_ARN: "arn:aws:role/some-role"  # This works
     steps:
     - aws-secrets-manager@x.x.x:
         inputs:
-        - aws_iam_role_arn: "arn:aws:role/some-role"  # This works too
+        - aws_role_arn: "arn:aws:role/some-role"  # This works too
         - secret_list: |
             secret-line-1
             secret-line-2
