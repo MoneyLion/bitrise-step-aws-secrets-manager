@@ -25,7 +25,7 @@ toolkit:
     package_name: moneylion.com/security/bitrise-step-aws-secrets-manager
 
 inputs:
-  - aws_role_arn: $AWS_ROLE_ARN
+  - aws_role_arn: $SECRETS_AWS_ROLE_ARN
     opts:
       title: AWS IAM role ARN
       summary: The ARN of AWS IAM role to assume.
