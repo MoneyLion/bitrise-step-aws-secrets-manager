@@ -1,4 +1,4 @@
-# AWS Secrets Manager
+# Bitrise custom step for AWS Secrets Manager
 
 Bitrise custom step to fetch secrets from AWS Secrets Manager.
 
