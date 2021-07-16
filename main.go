@@ -49,9 +49,9 @@ func parseSecretList(secretList string) (items []secretListItem) {
 		}
 		secretComponents := strings.Split(secret, "#")
 		items = append(items, secretListItem{
-			arn:    secretComponents[0],
-			key:    secretComponents[1],
-			envvar: secretComponents[2],
+			arn:    strings.TrimSpace(secretComponents[0]),
+			key:    strings.TrimSpace(secretComponents[1]),
+			envvar: strings.TrimSpace(secretComponents[2]),
 		})
 	}
 	return

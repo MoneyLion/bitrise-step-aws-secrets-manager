@@ -32,8 +32,8 @@ workflows:
           file if you would not specify another value.
         inputs:
           - secret_list: |
-              arn#username#USERNAME
-              arn#password#PASSWORD
+              arn # username # USERNAME
+              arn # password # PASSWORD
     - script:
         inputs:
         - content: |
