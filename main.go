@@ -121,7 +121,9 @@ func main() {
 		panic(err)
 	}
 
-	assumeRole(lcfg, &awsConfig)
+	if lcfg.awsRoleArn != "" {
+		assumeRole(lcfg, &awsConfig)
+	}
 
 	secretCache := make(secretCacheMap)
 

@@ -28,8 +28,6 @@ inputs:
       title: AWS Role ARN
       summary: ARN of AWS IAM role to assume
       description: The ARN of AWS IAM role to assume. This role should have the necessary permission to read secrets from AWS Secrets Manager.
-      is_required: true
-      is_sensitive: true
   - secret_list:
     opts:
       title: Secret list
