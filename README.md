@@ -2,6 +2,8 @@
 
 Bitrise custom step to fetch secrets from AWS Secrets Manager.
 
+View [changelog](./CHANGELOG.md).
+
 ## Usage
 
 Include this step in your workflow, for example:
