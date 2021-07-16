@@ -24,6 +24,8 @@ Bitrise custom step to fetch secrets from AWS Secrets Manager.
 
   1. Create an annotated Git tag.
 
+  1. Push the commits and tags.
+
   1. Set `MY_STEPLIB_REPO_FORK_GIT_URL` in local file `bitrise.secrets.yml` to point to your forked StepLib repository.
 
   1. Run `bitrise run share-this-step`.
