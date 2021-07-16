@@ -1,11 +1,13 @@
 title: Fetch secrets
 summary: Fetch secrets from AWS Secrets Manager
 description: |
-  The main intention of this custom step is to allow us to store sensitive data on AWS Secrets Manager, and fetching them on-demand during Bitrise workflow execution.
+  The main intention of this custom step is to allow storage of sensitive data on AWS Secrets Manager, and fetching them on-demand during Bitrise workflow execution.
 
-  When a Bitrise workflow runs, this step fetches the secrets from AWS Secrets Manager, based on the list of secrets provided as input.
+  When a workflow runs, the step fetches a list of specified secrets from AWS Secrets Manager.
 
-  Each secret stored on AWS Secrets Manager is represented as a JSON object. For each secret that it fetches, it then retrieve the JSON object value from the secret's JSON object, using a specified JSON object key. The value is then stored in an environment variable, exported and propagated to be consumed in subsequent steps in the workflow.
+  The fetched secrets are then propagated into subsequent steps in the workflow.
+
+  Checkout the main repository README for usage guide.
 
 website: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager
 source_code_url: https://github.com/MoneyLion/bitrise-step-aws-secrets-manager
@@ -25,26 +27,38 @@ toolkit:
 inputs:
   - aws_role_arn: $AWS_ROLE_ARN
     opts:
-      title: AWS Role ARN
-      summary: ARN of AWS IAM role to assume
+      title: AWS IAM role ARN
+      summary: The ARN of AWS IAM role to assume.
       description: The ARN of AWS IAM role to assume. This role should have the necessary permission to read secrets from AWS Secrets Manager.
+
   - secret_list:
     opts:
       title: Secret list
-      summary: |
-        Newline separated list of secret. Each secret is delimited with hash symbol, consisting of the secret ARN, the secret's JSON object key, and the environment variable in which to store the corresponding JSON object value in.
-
-        Example: `arn:aws:secretsmanager:us-east-1:123456789012:secret:db-credential#username#USERNAME`.
-
+      summary: A list of secrets to fetch.
       description: |
-        The newline separated list of secrets to be fetched from AWS Secrets Manager.
+        A newline separated list of secrets to fetch from AWS Secrets Manager.
 
-        Each secret itself consists of three components:
+        Each line is in the form of:
 
-          - The ARN of the secret. This can be either full ARN, or partial ARN, which contains only the name of the secret, without the six random character suffix.
+        ```
+        <Secret ARN> # <JSON object key> # <Environment variable>
+        ```
 
-          - The secret's JSON object key. The JSON object key for identifying the value that we want to retrieve in the secret's JSON object.
+        For example, given the secret with an ARN `arn:aws:secret-1`, and a secret value:
 
-          - The environment variable to store the value in. The environment variable where the JSON object value, identified by the JSON object key, is stored in.
+        ```
+        {
+          "username": "admin",
+          "password": "str0ngpassword"
+        }
+        ```
+
+        Specifying this line in the secret list:
+
+        ```
+        arn:aws:secret-1 # username # USERNAME
+        ```
+
+        Fetches the secret, retrieves the JSON value under the key `username`, and store that value in the `USERNAME` environment variable. `$USERNAME` will now contain the value `admin`.
 
       is_required: true
