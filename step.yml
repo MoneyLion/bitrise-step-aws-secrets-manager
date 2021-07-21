@@ -1,9 +1,9 @@
-title: Fetch secrets
+title: Fetch secrets from AWS Secrets Manager
 summary: Fetch secrets from AWS Secrets Manager
 description: |
-  The main intention of this custom step is to allow storage of sensitive data on AWS Secrets Manager, and fetching them on-demand during Bitrise workflow execution.
+  The main intention of this Step is to allow storage of sensitive data on AWS Secrets Manager, and fetching them on-demand during Bitrise workflow execution.
 
-  When a workflow runs, the step fetches a list of specified secrets from AWS Secrets Manager.
+  When a workflow runs, the Step fetches a list of specified secrets from AWS Secrets Manager.
 
   The fetched secrets are then propagated into subsequent steps in the workflow.
 

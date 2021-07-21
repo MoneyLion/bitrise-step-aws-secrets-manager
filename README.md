@@ -1,6 +1,6 @@
-# Bitrise custom step for AWS Secrets Manager
+# Bitrise Step for AWS Secrets Manager
 
-Bitrise custom step to fetch secrets from AWS Secrets Manager.
+Bitrise Step to fetch secrets from AWS Secrets Manager.
 
 View [changelog](./CHANGELOG.md).
 
@@ -54,7 +54,7 @@ Fetches the secret, retrieves the JSON value under the key `username`, and store
 
 ### Authenticating with AWS
 
-The custom step uses AWS SDK for Go v2 with the default config loader. This means for authenticating with AWS, you may:
+The Step uses AWS SDK for Go v2 with the default config loader. This means for authenticating with AWS, you may:
 
   - Use static AWS credentials via environment variable, e.g. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
   - Use shared configuration files, e.g. `AWS_PROFILE`.
