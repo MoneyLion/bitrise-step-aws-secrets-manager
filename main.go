@@ -16,13 +16,13 @@ import (
 )
 
 const (
-	AWS_ROLE_ARN = "aws_role_arn"
-	SECRET_LIST  = "secret_list"
+	AWS_IAM_ROLE_ARN = "aws_iam_role_arn"
+	SECRET_LIST      = "secret_list"
 )
 
 type localConfig struct {
-	awsRoleArn string
-	secretList string
+	awsIamRoleArn string
+	secretList    string
 }
 
 type secretListItem struct {
@@ -37,7 +37,7 @@ type secretCacheMap map[string]string
 
 func assumeRole(lcfg localConfig, awsConfig *aws.Config) {
 	stsSvc := sts.NewFromConfig(*awsConfig)
-	creds := stscreds.NewAssumeRoleProvider(stsSvc, lcfg.awsRoleArn)
+	creds := stscreds.NewAssumeRoleProvider(stsSvc, lcfg.awsIamRoleArn)
 	awsConfig.Credentials = &aws.CredentialsCache{Provider: creds}
 	return
 }
@@ -112,8 +112,8 @@ func exportEnvVar(data secretValueJson, dataKey string, envVarKey string) (err e
 
 func main() {
 	lcfg := localConfig{
-		awsRoleArn: os.Getenv(AWS_ROLE_ARN),
-		secretList: os.Getenv(SECRET_LIST),
+		awsIamRoleArn: os.Getenv(AWS_IAM_ROLE_ARN),
+		secretList:    os.Getenv(SECRET_LIST),
 	}
 
 	awsConfig, err := config.LoadDefaultConfig()
@@ -121,7 +121,7 @@ func main() {
 		panic(err)
 	}
 
-	if lcfg.awsRoleArn != "" {
+	if lcfg.awsIamRoleArn != "" {
 		assumeRole(lcfg, &awsConfig)
 	}
 

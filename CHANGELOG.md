@@ -3,13 +3,14 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
-## [1.0.0] - 2021-07-16
 ### Added
 - Support space around the `#` delimiter in each secret for readability.
 
 ### Changed
-- Rename an environment variable that is used by the custom step, from `AWS_ROLE_ARN` to `SECRETS_AWS_ROLE_ARN`, to avoid usage clash with AWS SDK for Go.
+- Step input `aws_role_arn` is renamed to `aws_iam_role_arn`.
+
+### Removed
+- No longer treat the value of `AWS_ROLE_ARN` environment variable as Step's input value.
 
 ## [0.1.0] - 2021-07-16
 ### Added

@@ -31,6 +31,7 @@ workflows:
           but the step would use the default value specified in the `step.yml`
           file if you would not specify another value.
         inputs:
+          - aws_iam_role_arn: 'arn'
           - secret_list: |
               arn # username # USERNAME
               arn # password # PASSWORD
