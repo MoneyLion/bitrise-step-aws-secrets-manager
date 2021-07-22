@@ -11,6 +11,7 @@ description: |
 
     - Use static AWS credentials via environment variable, e.g. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
     - Use shared configuration files, e.g. `AWS_PROFILE`.
+    - Specify AWS region via `AWS_DEFAULT_REGION`.
 
   Checkout the main repository README for more usage guide.
 

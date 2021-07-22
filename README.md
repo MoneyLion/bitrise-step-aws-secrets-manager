@@ -58,6 +58,7 @@ The Step uses AWS SDK for Go v2 with the default config loader. This means for a
 
   - Use static AWS credentials via environment variable, e.g. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
   - Use shared configuration files, e.g. `AWS_PROFILE`.
+  - Specify AWS region via `AWS_DEFAULT_REGION`.
 
 To assume an IAM role before fetching secrets, you may specify the role's ARN via `aws_iam_role_arn` input:
 
