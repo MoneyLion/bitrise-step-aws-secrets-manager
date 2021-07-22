@@ -37,7 +37,7 @@ Specify the list of secrets to be fetched, under the `secret_list` input, with e
 
 For example, given the secret with an ARN `arn:aws:secret-1`, and a secret value:
 
-```
+```json
 {
   "username": "admin",
   "password": "str0ngpassword"
