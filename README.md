@@ -75,6 +75,11 @@ workflows:
 
 ## Development note
 
+Ensure the following is installed:
+
+  - Go Programming Language
+  - Bitrise CLI
+
 ### Setting up
 
   1. Clone this repository.
