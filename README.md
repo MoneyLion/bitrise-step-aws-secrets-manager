@@ -54,11 +54,12 @@ Fetches the secret, retrieves the JSON value under the key `username`, and store
 
 ### Authenticating with AWS
 
-The Step uses AWS SDK for Go v2 with the default config loader. This means for authenticating with AWS, you may:
+The Step picks up AWS configurations via these workflow environment variables and secrets:
 
-  - Use static AWS credentials via environment variable, e.g. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-  - Use shared configuration files, e.g. `AWS_PROFILE`.
-  - Specify AWS region via `AWS_DEFAULT_REGION`.
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+  - `AWS_DEFAULT_REGION` or `AWS_REGION`
+  - `AWS_PROFILE`
 
 To assume an IAM role before fetching secrets, you may specify the role's ARN via `aws_iam_role_arn` input:
 

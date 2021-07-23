@@ -7,11 +7,12 @@ description: |
 
   The fetched secrets are then propagated into subsequent steps in the workflow.
 
-  The Step uses AWS SDK for Go v2 with the default config loader. This means for authenticating with AWS, you may:
+  The Step picks up AWS configurations via these workflow environment variables and secrets:
 
-    - Use static AWS credentials via environment variable, e.g. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-    - Use shared configuration files, e.g. `AWS_PROFILE`.
-    - Specify AWS region via `AWS_DEFAULT_REGION`.
+    - `AWS_ACCESS_KEY_ID`
+    - `AWS_SECRET_ACCESS_KEY`
+    - `AWS_DEFAULT_REGION` or `AWS_REGION`
+    - `AWS_PROFILE`
 
   Checkout the main repository README for more usage guide.
 
@@ -34,28 +35,28 @@ inputs:
   - aws_access_key_id: ''
     opts:
       title: AWS access key ID
-      summary: AWS access key ID
-      description: The AWS Access Key ID. If you are supplying this input, ensure the variable is named exactly `AWS_ACCESS_KEY_ID`.
+      summary: AWS access key ID. Automatically sourced from `AWS_ACCESS_KEY_ID` variable.
+      description: AWS access key ID. Automatically sourced from `AWS_ACCESS_KEY_ID` variable.
       is_sensitive: true
 
   - aws_secret_access_key: ''
     opts:
       title: AWS secret access key
-      summary: AWS secret access key
-      description: The AWS secret access key. If you are supplying this input, ensure the variable is named exactly `AWS_SECRET_ACCESS_KEY`.
+      summary: AWS secret access key. Automatically sourced from `AWS_SECRET_ACCESS_KEY` variable.
+      description: AWS secret access key. Automatically sourced from `AWS_SECRET_ACCESS_KEY` variable.
       is_sensitive: true
 
   - aws_region: ''
     opts:
       title: AWS region
-      summary: AWS region
-      description: The AWS region to operate in. If you are supplying this input, ensure the variable is named exactly `AWS_DEFAULT_REGION` or `AWS_REGION`.
+      summary: AWS region to operate in. Automatically sourced from `AWS_DEFAULT_REGION` or `AWS_REGION` variable.
+      description: AWS region to operate in. Automatically sourced from `AWS_DEFAULT_REGION` or `AWS_REGION` variable.
 
   - aws_iam_role_arn: ''
     opts:
       title: AWS IAM role ARN
       summary: The ARN of AWS IAM role to assume.
-      description: The ARN of AWS IAM role to assume. This role should have the necessary permission to read secrets from AWS Secrets Manager.
+      description: The ARN of AWS IAM role to assume.
 
   - secret_list:
     opts:
