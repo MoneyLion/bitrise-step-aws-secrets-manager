@@ -1,18 +1,31 @@
 title: Fetch secrets from AWS Secrets Manager
 summary: Fetch secrets from AWS Secrets Manager
 description: |
-  The main intention of this Step is to allow storage of sensitive data on AWS Secrets Manager, and fetching them on-demand during Bitrise workflow execution.
-
-  When a workflow runs, the Step fetches a list of specified secrets from AWS Secrets Manager.
+  This Step fetches secrets on-demand from AWS Secrets Manager, during Bitrise workflow execution.
 
   The fetched secrets are then propagated into subsequent steps in the workflow.
 
-  The Step picks up AWS configurations via these workflow environment variables and secrets:
+  Include this Step in your workflow, for example:
 
-    - `AWS_ACCESS_KEY_ID`
-    - `AWS_SECRET_ACCESS_KEY`
-    - `AWS_DEFAULT_REGION` or `AWS_REGION`
-    - `AWS_PROFILE`
+  ```yaml
+  workflows:
+    foo:
+      steps:
+      - aws-secrets-manager@x.x.x:
+          inputs:
+          - aws_access_key_id: $AWS_ACCESS_KEY_ID
+          - aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+          - aws_default_region: a-region-1
+          - secret_list: |
+              arn:aws:secret-1 # username # USERNAME
+              arn:aws:secret-2 # password # PASSWORD
+      - script@1:
+          inputs:
+          - content: |
+              #!/bin/bash
+              #
+              # Access your secrets via $USERNAME and $PASSWORD
+  ```
 
   Checkout the main repository README for more usage guide.
 
@@ -35,22 +48,28 @@ inputs:
   - aws_access_key_id: ''
     opts:
       title: AWS access key ID
-      summary: AWS access key ID. Automatically sourced from `AWS_ACCESS_KEY_ID` variable.
-      description: AWS access key ID. Automatically sourced from `AWS_ACCESS_KEY_ID` variable.
+      summary: AWS access key ID.
+      description: AWS access key ID.
       is_sensitive: true
 
   - aws_secret_access_key: ''
     opts:
       title: AWS secret access key
-      summary: AWS secret access key. Automatically sourced from `AWS_SECRET_ACCESS_KEY` variable.
-      description: AWS secret access key. Automatically sourced from `AWS_SECRET_ACCESS_KEY` variable.
+      summary: AWS secret access key.
+      description: AWS secret access key.
       is_sensitive: true
 
-  - aws_region: ''
+  - aws_default_region: ''
     opts:
       title: AWS region
-      summary: AWS region to operate in. Automatically sourced from `AWS_DEFAULT_REGION` or `AWS_REGION` variable.
-      description: AWS region to operate in. Automatically sourced from `AWS_DEFAULT_REGION` or `AWS_REGION` variable.
+      summary: AWS region to operate in.
+      description: AWS region to operate in.
+
+  - aws_profile: ''
+    opts:
+      title: AWS named profile
+      summary: An AWS named profile in shared configuration file.
+      description: An AWS named profile in shared configuration file.
 
   - aws_iam_role_arn: ''
     opts:

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -15,14 +16,13 @@ import (
 	"strings"
 )
 
-const (
-	AWS_IAM_ROLE_ARN = "aws_iam_role_arn"
-	SECRET_LIST      = "secret_list"
-)
-
-type localConfig struct {
-	awsIamRoleArn string
-	secretList    string
+type stepInput struct {
+	awsAccessKeyId     string
+	awsSecretAccessKey string
+	awsDefaultRegion   string
+	awsProfile         string
+	awsIamRoleArn      string
+	secretList         string
 }
 
 type secretListItem struct {
@@ -35,9 +35,32 @@ type secretValueJson map[string]string
 
 type secretCacheMap map[string]string
 
-func assumeRole(lcfg localConfig, awsConfig *aws.Config) {
+func prepareAwsConfig(sinput stepInput) (awsConfig aws.Config, err error) {
+	if sinput.awsAccessKeyId != "" && sinput.awsSecretAccessKey != "" && sinput.awsDefaultRegion != "" {
+		fmt.Println("Loading AWS config using static credentials")
+		awsConfig, err = config.LoadDefaultConfig(
+			config.WithRegion(sinput.awsDefaultRegion),
+			config.WithCredentialsProvider{
+				CredentialsProvider: credentials.NewStaticCredentialsProvider(
+					sinput.awsAccessKeyId,
+					sinput.awsSecretAccessKey,
+					"",
+				),
+			})
+	} else if sinput.awsProfile != "" {
+		fmt.Println("Loading AWS config using named profile")
+		awsConfig, err = config.LoadDefaultConfig(
+			config.WithSharedConfigProfile(sinput.awsProfile))
+	} else {
+		err = errors.New("Incomplete AWS configuration. Specify AWS static credentials and region, or an AWS named profile for shared configuration, via the Step's input.")
+	}
+
+	return
+}
+
+func assumeRole(sinput stepInput, awsConfig *aws.Config) {
 	stsSvc := sts.NewFromConfig(*awsConfig)
-	creds := stscreds.NewAssumeRoleProvider(stsSvc, lcfg.awsIamRoleArn)
+	creds := stscreds.NewAssumeRoleProvider(stsSvc, sinput.awsIamRoleArn)
 	awsConfig.Credentials = &aws.CredentialsCache{Provider: creds}
 	return
 }
@@ -111,23 +134,34 @@ func exportEnvVar(data secretValueJson, dataKey string, envVarKey string) (err e
 }
 
 func main() {
-	lcfg := localConfig{
-		awsIamRoleArn: os.Getenv(AWS_IAM_ROLE_ARN),
-		secretList:    os.Getenv(SECRET_LIST),
+	// Prevent environment variables from interfering with AWS config loading
+	os.Unsetenv("AWS_ACCESS_KEY_ID")
+	os.Unsetenv("AWS_SECRET_ACCESS_KEY")
+	os.Unsetenv("AWS_DEFAULT_REGION")
+	os.Unsetenv("AWS_REGION")
+	os.Unsetenv("AWS_PROFILE")
+
+	sinput := stepInput{
+		awsAccessKeyId:     os.Getenv("aws_access_key_id"),
+		awsSecretAccessKey: os.Getenv("aws_secret_access_key"),
+		awsDefaultRegion:   os.Getenv("aws_default_region"),
+		awsProfile:         os.Getenv("aws_profile"),
+		awsIamRoleArn:      os.Getenv("aws_iam_role_arn"),
+		secretList:         os.Getenv("secret_list"),
 	}
 
-	awsConfig, err := config.LoadDefaultConfig()
+	awsConfig, err := prepareAwsConfig(sinput)
 	if err != nil {
 		panic(err)
 	}
 
-	if lcfg.awsIamRoleArn != "" {
-		assumeRole(lcfg, &awsConfig)
+	if sinput.awsIamRoleArn != "" {
+		assumeRole(sinput, &awsConfig)
 	}
 
 	secretCache := make(secretCacheMap)
 
-	for _, item := range parseSecretList(lcfg.secretList) {
+	for _, item := range parseSecretList(sinput.secretList) {
 		secretString, err := cacher(secretCache, item.arn, awsConfig, fetchSecrets)
 		if err != nil {
 			panic(err)

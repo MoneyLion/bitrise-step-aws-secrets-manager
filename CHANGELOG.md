@@ -4,7 +4,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 ### Added
-- Document on automatic sourcing of AWS configurations on Step's input
+- Proper support for using AWS shared configuration, via `aws_profile` Step input.
+
+### Changed
+- AWS configurations are no longer automatically and implicitly sourced from environment variables. Each of the configuration has to be supplied via the Step's input.
 
 ## [1.0.0] - 2021-07-22
 ### Added

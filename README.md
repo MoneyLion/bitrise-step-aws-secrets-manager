@@ -6,7 +6,7 @@ View [changelog](./CHANGELOG.md).
 
 ## Usage
 
-Include this step in your workflow, for example:
+Include this Step in your workflow, for example:
 
 ```yaml
 workflows:
@@ -14,6 +14,9 @@ workflows:
     steps:
     - aws-secrets-manager@x.x.x:
         inputs:
+        - aws_access_key_id: $AWS_ACCESS_KEY_ID
+        - aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+        - aws_default_region: a-region-1
         - secret_list: |
             arn:aws:secret-1 # username # USERNAME
             arn:aws:secret-2 # password # PASSWORD
@@ -54,12 +57,35 @@ Fetches the secret, retrieves the JSON value under the key `username`, and store
 
 ### Authenticating with AWS
 
-The Step picks up AWS configurations via these workflow environment variables and secrets:
+Supply AWS credentials and region configuration via the Step's input:
 
-  - `AWS_ACCESS_KEY_ID`
-  - `AWS_SECRET_ACCESS_KEY`
-  - `AWS_DEFAULT_REGION` or `AWS_REGION`
-  - `AWS_PROFILE`
+```yaml
+workflows:
+  foo:
+    steps:
+    - aws-secrets-manager@x.x.x:
+        inputs:
+        - aws_access_key_id: $AWS_ACCESS_KEY_ID
+        - aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+        - aws_default_region: a-region-1
+        - secret_list: |
+            ...
+```
+
+The credentials have to be stored in workflow secret.
+
+You may also use an AWS named profile from shared configuration file, via `aws_profile` Step input:
+
+```yaml
+workflows:
+  foo:
+    steps:
+    - aws-secrets-manager@x.x.x:
+        inputs:
+        - aws_profile: some-profile   # Like this
+        - secret_list: |
+            ...
+```
 
 To assume an IAM role before fetching secrets, you may specify the role's ARN via `aws_iam_role_arn` input:
 
@@ -69,6 +95,9 @@ workflows:
     steps:
     - aws-secrets-manager@x.x.x:
         inputs:
+        - aws_access_key_id: $AWS_ACCESS_KEY_ID
+        - aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+        - aws_default_region: a-region-1
         - aws_iam_role_arn: 'arn:aws:role/some-role'  # Like this
         - secret_list: |
             secret-line-1
