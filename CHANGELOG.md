@@ -4,6 +4,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [2.1.0] - 2022-03-01
+### Added
+- Mark stored secret values as sensitive.
+
 ## [2.0.0] - 2021-07-25
 ### Added
 - Proper support for using AWS shared configuration, via `aws_profile` Step input.
