@@ -128,7 +128,7 @@ func exportEnvVar(data secretValueJson, dataKey string, envVarKey string) (err e
 		return
 	}
 	fmt.Printf("Storing secret value for key '%s' into $%s\n", dataKey, envVarKey)
-	c := exec.Command("envman", "add", "--key", envVarKey, "--value", dataValue)
+	c := exec.Command("envman", "add", "--key", envVarKey, "--value", dataValue, "--sensitive")
 	err = c.Run()
 	return
 }
