@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"os"
-	"os/exec"
-	"strings"
 )
 
 type stepInput struct {
@@ -121,16 +122,26 @@ func loadJson(secretString string) (result secretValueJson, err error) {
 	return
 }
 
-func exportEnvVar(data secretValueJson, dataKey string, envVarKey string) (err error) {
+func exportEnvVarJson(data secretValueJson, dataKey string, envVarKey string) (err error) {
 	dataValue, ok := data[dataKey]
 	if !ok {
 		err = errors.New(dataKey + " not found in secret")
 		return
 	}
 	fmt.Printf("Storing secret value for key '%s' into $%s\n", dataKey, envVarKey)
-	c := exec.Command("envman", "add", "--key", envVarKey, "--value", dataValue, "--sensitive")
+	err = exportEnvVar(dataValue, envVarKey)
+	return
+}
+
+func exportEnvVar(value string, envVarKey string) (err error) {
+	c := exec.Command("envman", "add", "--key", envVarKey, "--value", value, "--sensitive")
 	err = c.Run()
 	return
+}
+
+func IsJSON(str string) bool {
+    var js json.RawMessage
+    return json.Unmarshal([]byte(str), &js) == nil
 }
 
 func main() {
@@ -167,11 +178,15 @@ func main() {
 			panic(err)
 		}
 
-		secretJson, err := loadJson(secretString)
-		if err != nil {
-			panic(err)
-		}
+		if IsJSON(secretString) {
+			secretJson, err := loadJson(secretString)
+			if err != nil {
+				panic(err)
+			}
 
-		exportEnvVar(secretJson, item.key, item.envvar)
+			exportEnvVarJson(secretJson, item.key, item.envvar)
+		} else {
+			exportEnvVar(secretString, item.envvar)
+		}
 	}
 }
