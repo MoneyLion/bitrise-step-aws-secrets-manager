@@ -5,6 +5,8 @@ description: |
 
   The fetched secrets are then propagated into subsequent steps in the workflow.
 
+  This step can detect if it should parse the SecretString as JSON or as regular text. No extra configuration required.
+
   Include this Step in your workflow, for example:
 
   ```yaml

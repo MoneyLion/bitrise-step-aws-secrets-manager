@@ -38,7 +38,10 @@ Specify the list of secrets to be fetched, under the `secret_list` input, with e
 <Secret ARN> # <JSON object key> # <Environment variable>
 ```
 
-For example, given the secret with an ARN `arn:aws:secret-1`, and a secret value:
+If your SecretString is not JSON, the `<JSON object key>` can be omitted with `_`. See the PlainText SecretString example below for more details.
+
+### JSON SecretString Example
+For example, if the given the secret is JSON with an ARN `arn:aws:secret-1`, and a secret value:
 
 ```json
 {
@@ -53,7 +56,23 @@ Specifying this line in the secret list:
 arn:aws:secret-1 # username # USERNAME
 ```
 
-Fetches the secret, retrieves the JSON value under the key `username`, and store that value in the `USERNAME` environment variable. `$USERNAME` will now contain the value `admin`.
+Fetches the secret, retrieves the JSON value under the key `username`, and stores that value in the `USERNAME` environment variable. `$USERNAME` will now contain the value `admin`.
+
+
+### PlainText SecretString Example
+If the given secret is plain text (not JSON) with an ARN `arn:aws:secret-1`, and the secret value:
+
+```
+SOME_SECRET_VALUE
+```
+
+Specifying this line in the secret list:
+
+```
+arn:aws:secret-1 # username # USERNAME
+```
+
+The key `username` is ignored and can be omitted with `_`. Fetches the secret, retrieves the value, and stores that value in the `USERNAME` environment variable. `$USERNAME` will now contain the value `SOME_SECRET_VALUE`.
 
 ### Authenticating with AWS
 
