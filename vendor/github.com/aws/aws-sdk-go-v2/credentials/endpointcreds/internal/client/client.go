@@ -9,13 +9,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
-	"github.com/awslabs/smithy-go"
-	smithymiddleware "github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/smithy-go"
+	smithymiddleware "github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // ServiceID is the client identifer
-const ServiceID = "EndpointCredentials"
+const ServiceID = "endpoint-credentials"
 
 // HTTPClient is a client for sending HTTP requests
 type HTTPClient interface {
@@ -33,7 +34,7 @@ type Options struct {
 
 	// Retryer guides how HTTP requests should be retried in case of recoverable
 	// failures. When nil the API client will use a default retryer.
-	Retryer retry.Retryer
+	Retryer aws.Retryer
 
 	// Set of options to modify how the credentials operation is invoked.
 	APIOptions []func(*smithymiddleware.Stack) error
@@ -47,11 +48,6 @@ func (o Options) Copy() Options {
 	return to
 }
 
-// GetRetryer returns the configured retryer
-func (o Options) GetRetryer() retry.Retryer {
-	return o.Retryer
-}
-
 // Client is an client for retrieving AWS credentials from an endpoint
 type Client struct {
 	options Options
@@ -62,7 +58,7 @@ func New(options Options, optFns ...func(*Options)) *Client {
 	options = options.Copy()
 
 	if options.HTTPClient == nil {
-		options.HTTPClient = aws.NewBuildableHTTPClient()
+		options.HTTPClient = awshttp.NewBuildableClient()
 	}
 
 	if options.Retryer == nil {
@@ -96,8 +92,8 @@ func (c *Client) GetCredentials(ctx context.Context, params *GetCredentialsInput
 	stack.Serialize.Add(&serializeOpGetCredential{}, smithymiddleware.After)
 	stack.Build.Add(&buildEndpoint{Endpoint: options.Endpoint}, smithymiddleware.After)
 	stack.Deserialize.Add(&deserializeOpGetCredential{}, smithymiddleware.After)
-	retry.AddRetryMiddlewares(stack, options)
-	middleware.AddUserAgentKey(ServiceID)
+	retry.AddRetryMiddlewares(stack, retry.AddRetryMiddlewaresOptions{Retryer: options.Retryer})
+	middleware.AddSDKAgentKey(middleware.FeatureMetadata, ServiceID)
 	smithyhttp.AddErrorCloseResponseBodyMiddleware(stack)
 	smithyhttp.AddCloseResponseBodyMiddleware(stack)
 

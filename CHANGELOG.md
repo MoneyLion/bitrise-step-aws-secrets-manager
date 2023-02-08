@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 - JSON detection to handle JSON or non-JSON SecretStrings
 
+### Changed
+- Use Go 1.19 and upgrade dependencies
+
 ## [2.1.0] - 2022-03-01
 ### Added
 - Mark stored secret values as sensitive.

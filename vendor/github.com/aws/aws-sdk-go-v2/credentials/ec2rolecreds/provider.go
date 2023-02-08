@@ -5,13 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/ec2imds"
-	"github.com/awslabs/smithy-go"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	sdkrand "github.com/aws/aws-sdk-go-v2/internal/rand"
+	"github.com/aws/aws-sdk-go-v2/internal/sdk"
+	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/logging"
+	"github.com/aws/smithy-go/middleware"
 )
 
 // ProviderName provides a name of EC2Role provider
@@ -20,21 +25,17 @@ const ProviderName = "EC2RoleProvider"
 // GetMetadataAPIClient provides the interface for an EC2 IMDS API client for the
 // GetMetadata operation.
 type GetMetadataAPIClient interface {
-	GetMetadata(context.Context, *ec2imds.GetMetadataInput, ...func(*ec2imds.Options)) (*ec2imds.GetMetadataOutput, error)
+	GetMetadata(context.Context, *imds.GetMetadataInput, ...func(*imds.Options)) (*imds.GetMetadataOutput, error)
 }
 
 // A Provider retrieves credentials from the EC2 service, and keeps track if
 // those credentials are expired.
 //
-// The New function must be used to create the Provider.
+// The New function must be used to create the with a custom EC2 IMDS client.
 //
-//     p := &ec2rolecreds.New(ec2rolecreds.Options{
-//          Client: ec2imds.New(ec2imds.Options{}),
-//
-//          // Expire the credentials 10 minutes before IAM states they should.
-//          // Proactively refreshing the credentials.
-//          ExpiryWindow: 10 * time.Minute
-//     })
+//	p := &ec2rolecreds.New(func(o *ec2rolecreds.Options{
+//	     o.Client = imds.New(imds.Options{/* custom options */})
+//	})
 type Provider struct {
 	options Options
 }
@@ -44,30 +45,21 @@ type Options struct {
 	// The API client that will be used by the provider to make GetMetadata API
 	// calls to EC2 IMDS.
 	//
-	// If nil, the provider will default to the ec2imds client.
+	// If nil, the provider will default to the EC2 IMDS client.
 	Client GetMetadataAPIClient
-
-	// ExpiryWindow will allow the credentials to trigger refreshing prior to
-	// the credentials actually expiring. This is beneficial so race conditions
-	// with expiring credentials do not cause request to fail unexpectedly
-	// due to ExpiredTokenException exceptions.
-	//
-	// So a ExpiryWindow of 10s would cause calls to IsExpired() to return true
-	// 10 seconds before the credentials are actually expired.
-	//
-	// If ExpiryWindow is 0 or less it will be ignored.
-	ExpiryWindow time.Duration
 }
 
 // New returns an initialized Provider value configured to retrieve
 // credentials from EC2 Instance Metadata service.
-func New(options Options, optFns ...func(*Options)) *Provider {
-	if options.Client == nil {
-		options.Client = ec2imds.New(ec2imds.Options{})
-	}
+func New(optFns ...func(*Options)) *Provider {
+	options := Options{}
 
 	for _, fn := range optFns {
 		fn(&options)
+	}
+
+	if options.Client == nil {
+		options.Client = imds.New(imds.Options{})
 	}
 
 	return &Provider{
@@ -75,9 +67,8 @@ func New(options Options, optFns ...func(*Options)) *Provider {
 	}
 }
 
-// Retrieve retrieves credentials from the EC2 service.
-// Error will be returned if the request fails, or unable to extract
-// the desired credentials.
+// Retrieve retrieves credentials from the EC2 service. Error will be returned
+// if the request fails, or unable to extract the desired credentials.
 func (p *Provider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	credsList, err := requestCredList(ctx, p.options.Client)
 	if err != nil {
@@ -102,13 +93,68 @@ func (p *Provider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 		Source:          ProviderName,
 
 		CanExpire: true,
-		Expires:   roleCreds.Expiration.Add(-p.options.ExpiryWindow),
+		Expires:   roleCreds.Expiration,
+	}
+
+	// Cap role credentials Expires to 1 hour so they can be refreshed more
+	// often. Jitter will be applied credentials cache if being used.
+	if anHour := sdk.NowTime().Add(1 * time.Hour); creds.Expires.After(anHour) {
+		creds.Expires = anHour
 	}
 
 	return creds, nil
 }
 
-// A ec2RoleCredRespBody provides the shape for unmarshaling credential
+// HandleFailToRefresh will extend the credentials Expires time if it it is
+// expired. If the credentials will not expire within the minimum time, they
+// will be returned.
+//
+// If the credentials cannot expire, the original error will be returned.
+func (p *Provider) HandleFailToRefresh(ctx context.Context, prevCreds aws.Credentials, err error) (
+	aws.Credentials, error,
+) {
+	if !prevCreds.CanExpire {
+		return aws.Credentials{}, err
+	}
+
+	if prevCreds.Expires.After(sdk.NowTime().Add(5 * time.Minute)) {
+		return prevCreds, nil
+	}
+
+	newCreds := prevCreds
+	randFloat64, err := sdkrand.CryptoRandFloat64()
+	if err != nil {
+		return aws.Credentials{}, fmt.Errorf("failed to get random float, %w", err)
+	}
+
+	// Random distribution of [5,15) minutes.
+	expireOffset := time.Duration(randFloat64*float64(10*time.Minute)) + 5*time.Minute
+	newCreds.Expires = sdk.NowTime().Add(expireOffset)
+
+	logger := middleware.GetLogger(ctx)
+	logger.Logf(logging.Warn, "Attempting credential expiration extension due to a credential service availability issue. A refresh of these credentials will be attempted again in %v minutes.", math.Floor(expireOffset.Minutes()))
+
+	return newCreds, nil
+}
+
+// AdjustExpiresBy will adds the passed in duration to the passed in
+// credential's Expires time, unless the time until Expires is less than 15
+// minutes. Returns the credentials, even if not updated.
+func (p *Provider) AdjustExpiresBy(creds aws.Credentials, dur time.Duration) (
+	aws.Credentials, error,
+) {
+	if !creds.CanExpire {
+		return creds, nil
+	}
+	if creds.Expires.Before(sdk.NowTime().Add(15 * time.Minute)) {
+		return creds, nil
+	}
+
+	creds.Expires = creds.Expires.Add(dur)
+	return creds, nil
+}
+
+// ec2RoleCredRespBody provides the shape for unmarshaling credential
 // request responses.
 type ec2RoleCredRespBody struct {
 	// Success State
@@ -128,7 +174,7 @@ const iamSecurityCredsPath = "/iam/security-credentials/"
 // there are no credentials, or there is an error making or receiving the
 // request
 func requestCredList(ctx context.Context, client GetMetadataAPIClient) ([]string, error) {
-	resp, err := client.GetMetadata(ctx, &ec2imds.GetMetadataInput{
+	resp, err := client.GetMetadata(ctx, &imds.GetMetadataInput{
 		Path: iamSecurityCredsPath,
 	})
 	if err != nil {
@@ -154,7 +200,7 @@ func requestCredList(ctx context.Context, client GetMetadataAPIClient) ([]string
 // If the credentials cannot be found, or there is an error reading the response
 // and error will be returned.
 func requestCred(ctx context.Context, client GetMetadataAPIClient, credsName string) (ec2RoleCredRespBody, error) {
-	resp, err := client.GetMetadata(ctx, &ec2imds.GetMetadataInput{
+	resp, err := client.GetMetadata(ctx, &imds.GetMetadataInput{
 		Path: path.Join(iamSecurityCredsPath, credsName),
 	})
 	if err != nil {

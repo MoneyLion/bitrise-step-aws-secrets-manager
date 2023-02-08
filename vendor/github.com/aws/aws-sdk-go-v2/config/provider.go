@@ -2,449 +2,368 @@ package config
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"net/http"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/endpointcreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/processcreds"
+	"github.com/aws/aws-sdk-go-v2/credentials/ssocreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
-	"github.com/aws/aws-sdk-go-v2/ec2imds"
-	"github.com/awslabs/smithy-go/middleware"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	smithybearer "github.com/aws/smithy-go/auth/bearer"
+	"github.com/aws/smithy-go/logging"
+	"github.com/aws/smithy-go/middleware"
 )
 
-// SharedConfigProfileProvider provides access to the shared config profile
+// sharedConfigProfileProvider provides access to the shared config profile
 // name external configuration value.
-type SharedConfigProfileProvider interface {
-	GetSharedConfigProfile() (string, error)
+type sharedConfigProfileProvider interface {
+	getSharedConfigProfile(ctx context.Context) (string, bool, error)
 }
 
-// WithSharedConfigProfile wraps a strings to satisfy the SharedConfigProfileProvider
-// interface so a slice of custom shared config files ared used when loading the
-// SharedConfig.
-type WithSharedConfigProfile string
-
-// GetSharedConfigProfile returns the shared config profile.
-func (c WithSharedConfigProfile) GetSharedConfigProfile() (string, error) {
-	return string(c), nil
-}
-
-// GetSharedConfigProfile searches the Configs for a SharedConfigProfileProvider
+// getSharedConfigProfile searches the configs for a sharedConfigProfileProvider
 // and returns the value if found. Returns an error if a provider fails before a
 // value is found.
-func GetSharedConfigProfile(configs Configs) (string, bool, error) {
+func getSharedConfigProfile(ctx context.Context, configs configs) (value string, found bool, err error) {
 	for _, cfg := range configs {
-		if p, ok := cfg.(SharedConfigProfileProvider); ok {
-			v, err := p.GetSharedConfigProfile()
-			if err != nil {
-				return "", false, err
-			}
-			if len(v) > 0 {
-				return v, true, nil
+		if p, ok := cfg.(sharedConfigProfileProvider); ok {
+			value, found, err = p.getSharedConfigProfile(ctx)
+			if err != nil || found {
+				break
 			}
 		}
 	}
-
-	return "", false, nil
+	return
 }
 
-// SharedConfigFilesProvider provides access to the shared config filesnames
+// sharedConfigFilesProvider provides access to the shared config filesnames
 // external configuration value.
-type SharedConfigFilesProvider interface {
-	GetSharedConfigFiles() ([]string, error)
+type sharedConfigFilesProvider interface {
+	getSharedConfigFiles(ctx context.Context) ([]string, bool, error)
 }
 
-// WithSharedConfigFiles wraps a slice of strings to satisfy the
-// SharedConfigFilesProvider interface so a slice of custom shared config files
-// ared used when loading the SharedConfig.
-type WithSharedConfigFiles []string
-
-// GetSharedConfigFiles returns the slice of shared config files.
-func (c WithSharedConfigFiles) GetSharedConfigFiles() ([]string, error) {
-	return []string(c), nil
-}
-
-// GetSharedConfigFiles searchds the Configs for a SharedConfigFilesProvider
+// getSharedConfigFiles searches the configs for a sharedConfigFilesProvider
 // and returns the value if found. Returns an error if a provider fails before a
 // value is found.
-func GetSharedConfigFiles(configs Configs) ([]string, bool, error) {
+func getSharedConfigFiles(ctx context.Context, configs configs) (value []string, found bool, err error) {
 	for _, cfg := range configs {
-		if p, ok := cfg.(SharedConfigFilesProvider); ok {
-			v, err := p.GetSharedConfigFiles()
-			if err != nil {
-				return nil, false, err
-			}
-			if len(v) > 0 {
-				return v, true, nil
+		if p, ok := cfg.(sharedConfigFilesProvider); ok {
+			value, found, err = p.getSharedConfigFiles(ctx)
+			if err != nil || found {
+				break
 			}
 		}
 	}
 
-	return nil, false, nil
+	return
 }
 
-// CustomCABundleProvider provides access to the custom CA bundle PEM bytes.
-type CustomCABundleProvider interface {
-	GetCustomCABundle() ([]byte, error)
+// sharedCredentialsFilesProvider provides access to the shared credentials filesnames
+// external configuration value.
+type sharedCredentialsFilesProvider interface {
+	getSharedCredentialsFiles(ctx context.Context) ([]string, bool, error)
 }
 
-// WithCustomCABundle provides wrapping of a region string to satisfy the
-// CustomCABundleProvider interface.
-type WithCustomCABundle []byte
-
-// GetCustomCABundle returns the CA bundle PEM bytes.
-func (v WithCustomCABundle) GetCustomCABundle() ([]byte, error) {
-	return []byte(v), nil
-}
-
-// GetCustomCABundle searchds the Configs for a CustomCABundleProvider
+// getSharedCredentialsFiles searches the configs for a sharedCredentialsFilesProvider
 // and returns the value if found. Returns an error if a provider fails before a
 // value is found.
-func GetCustomCABundle(configs Configs) ([]byte, bool, error) {
+func getSharedCredentialsFiles(ctx context.Context, configs configs) (value []string, found bool, err error) {
 	for _, cfg := range configs {
-		if p, ok := cfg.(CustomCABundleProvider); ok {
-			v, err := p.GetCustomCABundle()
-			if err != nil {
-				return nil, false, err
-			}
-			if len(v) > 0 {
-				return v, true, nil
+		if p, ok := cfg.(sharedCredentialsFilesProvider); ok {
+			value, found, err = p.getSharedCredentialsFiles(ctx)
+			if err != nil || found {
+				break
 			}
 		}
 	}
 
-	return nil, false, nil
+	return
 }
 
-// RegionProvider provides access to the region external configuration value.
-type RegionProvider interface {
-	GetRegion() (string, error)
+// customCABundleProvider provides access to the custom CA bundle PEM bytes.
+type customCABundleProvider interface {
+	getCustomCABundle(ctx context.Context) (io.Reader, bool, error)
 }
 
-// WithRegion provides wrapping of a region string to satisfy the RegionProvider
-// interface.
-type WithRegion string
+// getCustomCABundle searches the configs for a customCABundleProvider
+// and returns the value if found. Returns an error if a provider fails before a
+// value is found.
+func getCustomCABundle(ctx context.Context, configs configs) (value io.Reader, found bool, err error) {
+	for _, cfg := range configs {
+		if p, ok := cfg.(customCABundleProvider); ok {
+			value, found, err = p.getCustomCABundle(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
 
-// GetRegion returns the region string.
-func (v WithRegion) GetRegion() (string, error) {
-	return string(v), nil
+	return
 }
 
-// GetRegion searchds the Configs for a RegionProvider and returns the value
+// regionProvider provides access to the region external configuration value.
+type regionProvider interface {
+	getRegion(ctx context.Context) (string, bool, error)
+}
+
+// getRegion searches the configs for a regionProvider and returns the value
 // if found. Returns an error if a provider fails before a value is found.
-func GetRegion(configs Configs) (string, bool, error) {
+func getRegion(ctx context.Context, configs configs) (value string, found bool, err error) {
 	for _, cfg := range configs {
-		if p, ok := cfg.(RegionProvider); ok {
-			v, err := p.GetRegion()
-			if err != nil {
-				return "", false, err
-			}
-			if len(v) > 0 {
-				return v, true, nil
+		if p, ok := cfg.(regionProvider); ok {
+			value, found, err = p.getRegion(ctx)
+			if err != nil || found {
+				break
 			}
 		}
 	}
-
-	return "", false, nil
+	return
 }
 
-// WithEC2IMDSRegion provides a RegionProvider that retrieves the region
-// from the EC2 Metadata service.
-//
-// TODO should this provider be added to the default config loading?
-type WithEC2IMDSRegion struct {
-	// If unset will be defaulted to Background context
-	Context context.Context
-
-	// If unset will default to generic EC2 IMDS client.
-	Client *ec2imds.Client
+// ec2IMDSRegionProvider provides access to the ec2 imds region
+// configuration value
+type ec2IMDSRegionProvider interface {
+	getEC2IMDSRegion(ctx context.Context) (string, bool, error)
 }
 
-// GetRegion attempts to retrieve the region from EC2 Metadata service.
-func (p WithEC2IMDSRegion) GetRegion() (string, error) {
-	ctx := p.Context
-	if ctx == nil {
-		ctx = context.Background()
+// getEC2IMDSRegion searches the configs for a ec2IMDSRegionProvider and
+// returns the value if found. Returns an error if a provider fails before
+// a value is found.
+func getEC2IMDSRegion(ctx context.Context, configs configs) (region string, found bool, err error) {
+	for _, cfg := range configs {
+		if provider, ok := cfg.(ec2IMDSRegionProvider); ok {
+			region, found, err = provider.getEC2IMDSRegion(ctx)
+			if err != nil || found {
+				break
+			}
+		}
 	}
-
-	client := p.Client
-	if client == nil {
-		client = ec2imds.New(ec2imds.Options{})
-	}
-
-	result, err := p.Client.GetRegion(ctx, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return result.Region, nil
+	return
 }
 
-// CredentialsProviderProvider provides access to the credentials external
+// credentialsProviderProvider provides access to the credentials external
 // configuration value.
-type CredentialsProviderProvider interface {
-	GetCredentialsProvider() (aws.CredentialsProvider, bool, error)
+type credentialsProviderProvider interface {
+	getCredentialsProvider(ctx context.Context) (aws.CredentialsProvider, bool, error)
 }
 
-// WithCredentialsProvider provides wrapping of a credentials Value to satisfy the
-// CredentialsProviderProvider interface.
-type WithCredentialsProvider struct {
-	aws.CredentialsProvider
-}
-
-// GetCredentialsProvider returns the credentials value.
-func (v WithCredentialsProvider) GetCredentialsProvider() (aws.CredentialsProvider, bool, error) {
-	if v.CredentialsProvider == nil {
-		return nil, false, nil
-	}
-
-	return v.CredentialsProvider, true, nil
-}
-
-// GetCredentialsProvider searches the Configs for a CredentialsProviderProvider
+// getCredentialsProvider searches the configs for a credentialsProviderProvider
 // and returns the value if found. Returns an error if a provider fails before a
 // value is found.
-func GetCredentialsProvider(configs Configs) (p aws.CredentialsProvider, found bool, err error) {
+func getCredentialsProvider(ctx context.Context, configs configs) (p aws.CredentialsProvider, found bool, err error) {
 	for _, cfg := range configs {
-		if provider, ok := cfg.(CredentialsProviderProvider); ok {
-			p, found, err = provider.GetCredentialsProvider()
-			if err != nil {
-				return nil, false, err
-			}
-			if found {
+		if provider, ok := cfg.(credentialsProviderProvider); ok {
+			p, found, err = provider.getCredentialsProvider(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-
-	return p, found, err
+	return
 }
 
-// MFATokenFuncProvider provides access to the MFA token function needed for
-// Assume Role with MFA.
-type MFATokenFuncProvider interface {
-	GetMFATokenFunc() (func() (string, error), error)
+// credentialsCacheOptionsProvider is an interface for retrieving a function for setting
+// the aws.CredentialsCacheOptions.
+type credentialsCacheOptionsProvider interface {
+	getCredentialsCacheOptions(ctx context.Context) (func(*aws.CredentialsCacheOptions), bool, error)
 }
 
-// WithMFATokenFunc provides wrapping of a string to satisfy the
-// MFATokenFuncProvider interface.
-type WithMFATokenFunc func() (string, error)
-
-// GetMFATokenFunc returns the MFA Token function.
-func (p WithMFATokenFunc) GetMFATokenFunc() (func() (string, error), error) {
-	return p, nil
-}
-
-// GetMFATokenFunc searches the Configs for a MFATokenFuncProvider
-// and returns the value if found. Returns an error if a provider fails before a
-// value is found.
-func GetMFATokenFunc(configs Configs) (func() (string, error), bool, error) {
-	for _, cfg := range configs {
-		if p, ok := cfg.(MFATokenFuncProvider); ok {
-			v, err := p.GetMFATokenFunc()
-			if err != nil {
-				return nil, false, err
-			}
-			if v != nil {
-				return v, true, nil
+// getCredentialsCacheOptionsProvider is an interface for retrieving a function for setting
+// the aws.CredentialsCacheOptions.
+func getCredentialsCacheOptionsProvider(ctx context.Context, configs configs) (
+	f func(*aws.CredentialsCacheOptions), found bool, err error,
+) {
+	for _, config := range configs {
+		if p, ok := config.(credentialsCacheOptionsProvider); ok {
+			f, found, err = p.getCredentialsCacheOptions(ctx)
+			if err != nil || found {
+				break
 			}
 		}
 	}
-
-	return nil, false, nil
+	return
 }
 
-// WithAssumeRoleDuration provides a wrapping type of a time.Duration to satisfy
-type WithAssumeRoleDuration time.Duration
-
-// GetAssumeRoleDuration returns the wrapped time.Duration value to use when setting
-// the assume role credentials duration.
-func (w WithAssumeRoleDuration) GetAssumeRoleDuration() (time.Duration, bool, error) {
-	return time.Duration(w), true, nil
+// bearerAuthTokenProviderProvider provides access to the bearer authentication
+// token external configuration value.
+type bearerAuthTokenProviderProvider interface {
+	getBearerAuthTokenProvider(context.Context) (smithybearer.TokenProvider, bool, error)
 }
 
-// ProcessCredentialOptions is an interface for retrieving a function for setting
+// getBearerAuthTokenProvider searches the config sources for a
+// bearerAuthTokenProviderProvider and returns the value if found. Returns an
+// error if a provider fails before a value is found.
+func getBearerAuthTokenProvider(ctx context.Context, configs configs) (p smithybearer.TokenProvider, found bool, err error) {
+	for _, cfg := range configs {
+		if provider, ok := cfg.(bearerAuthTokenProviderProvider); ok {
+			p, found, err = provider.getBearerAuthTokenProvider(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// bearerAuthTokenCacheOptionsProvider is an interface for retrieving a function for
+// setting the smithy-go auth/bearer#TokenCacheOptions.
+type bearerAuthTokenCacheOptionsProvider interface {
+	getBearerAuthTokenCacheOptions(context.Context) (func(*smithybearer.TokenCacheOptions), bool, error)
+}
+
+// getBearerAuthTokenCacheOptionsProvider is an interface for retrieving a function for
+// setting the smithy-go auth/bearer#TokenCacheOptions.
+func getBearerAuthTokenCacheOptions(ctx context.Context, configs configs) (
+	f func(*smithybearer.TokenCacheOptions), found bool, err error,
+) {
+	for _, config := range configs {
+		if p, ok := config.(bearerAuthTokenCacheOptionsProvider); ok {
+			f, found, err = p.getBearerAuthTokenCacheOptions(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// ssoTokenProviderOptionsProvider is an interface for retrieving a function for
+// setting the SDK's credentials/ssocreds#SSOTokenProviderOptions.
+type ssoTokenProviderOptionsProvider interface {
+	getSSOTokenProviderOptions(context.Context) (func(*ssocreds.SSOTokenProviderOptions), bool, error)
+}
+
+// getSSOTokenProviderOptions is an interface for retrieving a function for
+// setting the SDK's credentials/ssocreds#SSOTokenProviderOptions.
+func getSSOTokenProviderOptions(ctx context.Context, configs configs) (
+	f func(*ssocreds.SSOTokenProviderOptions), found bool, err error,
+) {
+	for _, config := range configs {
+		if p, ok := config.(ssoTokenProviderOptionsProvider); ok {
+			f, found, err = p.getSSOTokenProviderOptions(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// ssoTokenProviderOptionsProvider
+
+// processCredentialOptions is an interface for retrieving a function for setting
 // the processcreds.Options.
-type ProcessCredentialOptions interface {
-	GetProcessCredentialOptions() (func(*processcreds.Options), bool, error)
+type processCredentialOptions interface {
+	getProcessCredentialOptions(ctx context.Context) (func(*processcreds.Options), bool, error)
 }
 
-// WithProcessCredentialOptions wraps a function and satisfies the
-// ProcessCredentialOptions interface
-type WithProcessCredentialOptions func(*processcreds.Options)
-
-// GetProcessCredentialOptions returns the wrapped function
-func (w WithProcessCredentialOptions) GetProcessCredentialOptions() (func(*processcreds.Options), bool, error) {
-	return w, true, nil
-}
-
-// GetProcessCredentialOptions searches the slice of configs and returns the first function found
-func GetProcessCredentialOptions(configs Configs) (f func(*processcreds.Options), found bool, err error) {
+// getProcessCredentialOptions searches the slice of configs and returns the first function found
+func getProcessCredentialOptions(ctx context.Context, configs configs) (f func(*processcreds.Options), found bool, err error) {
 	for _, config := range configs {
-		if p, ok := config.(ProcessCredentialOptions); ok {
-			f, found, err = p.GetProcessCredentialOptions()
-			if err != nil {
-				return nil, false, err
-			}
-			if found {
+		if p, ok := config.(processCredentialOptions); ok {
+			f, found, err = p.getProcessCredentialOptions(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-	return f, found, err
+	return
 }
 
-// EC2RoleCredentialProviderOptions is an interface for retrieving a function
+// ec2RoleCredentialOptionsProvider is an interface for retrieving a function
 // for setting the ec2rolecreds.Provider options.
-type EC2RoleCredentialProviderOptions interface {
-	GetEC2RoleCredentialProviderOptions() (func(*ec2rolecreds.Options), bool, error)
+type ec2RoleCredentialOptionsProvider interface {
+	getEC2RoleCredentialOptions(ctx context.Context) (func(*ec2rolecreds.Options), bool, error)
 }
 
-// WithEC2RoleCredentialProviderOptions wraps a function and satisfies the
-// EC2RoleCredentialProviderOptions interface
-type WithEC2RoleCredentialProviderOptions func(*ec2rolecreds.Options)
-
-// GetEC2RoleCredentialProviderOptions returns the wrapped function
-func (w WithEC2RoleCredentialProviderOptions) GetEC2RoleCredentialProviderOptions() (func(*ec2rolecreds.Options), bool, error) {
-	return w, true, nil
-}
-
-// GetEC2RoleCredentialProviderOptions searches the slice of configs and returns the first function found
-func GetEC2RoleCredentialProviderOptions(configs Configs) (f func(*ec2rolecreds.Options), found bool, err error) {
+// getEC2RoleCredentialProviderOptions searches the slice of configs and returns the first function found
+func getEC2RoleCredentialProviderOptions(ctx context.Context, configs configs) (f func(*ec2rolecreds.Options), found bool, err error) {
 	for _, config := range configs {
-		if p, ok := config.(EC2RoleCredentialProviderOptions); ok {
-			f, found, err = p.GetEC2RoleCredentialProviderOptions()
-			if err != nil {
-				return nil, false, err
-			}
-			if found {
+		if p, ok := config.(ec2RoleCredentialOptionsProvider); ok {
+			f, found, err = p.getEC2RoleCredentialOptions(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-	return f, found, err
+	return
 }
 
-// DefaultRegionProvider is an interface for retrieving a default region if a region was not resolved from other sources
-type DefaultRegionProvider interface {
-	GetDefaultRegion() (string, bool, error)
+// defaultRegionProvider is an interface for retrieving a default region if a region was not resolved from other sources
+type defaultRegionProvider interface {
+	getDefaultRegion(ctx context.Context) (string, bool, error)
 }
 
-// WithDefaultRegion wraps a string and satisfies the DefaultRegionProvider interface
-type WithDefaultRegion string
-
-// GetDefaultRegion returns wrapped fallback region
-func (w WithDefaultRegion) GetDefaultRegion() (string, bool, error) {
-	return string(w), true, nil
-}
-
-// GetDefaultRegion searches the slice of configs and returns the first fallback region found
-func GetDefaultRegion(configs Configs) (value string, found bool, err error) {
+// getDefaultRegion searches the slice of configs and returns the first fallback region found
+func getDefaultRegion(ctx context.Context, configs configs) (value string, found bool, err error) {
 	for _, config := range configs {
-		if p, ok := config.(DefaultRegionProvider); ok {
-			value, found, err = p.GetDefaultRegion()
-			if err != nil {
-				return "", false, err
-			}
-			if found {
+		if p, ok := config.(defaultRegionProvider); ok {
+			value, found, err = p.getDefaultRegion(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-
-	return value, found, err
+	return
 }
 
-// EndpointCredentialProviderOptions is an interface for retrieving a function for setting
+// endpointCredentialOptionsProvider is an interface for retrieving a function for setting
 // the endpointcreds.ProviderOptions.
-type EndpointCredentialProviderOptions interface {
-	GetEndpointCredentialProviderOptions() (func(*endpointcreds.Options), bool, error)
+type endpointCredentialOptionsProvider interface {
+	getEndpointCredentialOptions(ctx context.Context) (func(*endpointcreds.Options), bool, error)
 }
 
-// WithEndpointCredentialProviderOptions wraps a function and satisfies the EC2RoleCredentialProviderOptions interface
-type WithEndpointCredentialProviderOptions func(*endpointcreds.Options)
-
-// GetEndpointCredentialProviderOptions returns the wrapped function
-func (w WithEndpointCredentialProviderOptions) GetEndpointCredentialProviderOptions() (func(*endpointcreds.Options), bool, error) {
-	return w, true, nil
-}
-
-// GetEndpointCredentialProviderOptions searches the slice of configs and returns the first function found
-func GetEndpointCredentialProviderOptions(configs Configs) (f func(*endpointcreds.Options), found bool, err error) {
+// getEndpointCredentialProviderOptions searches the slice of configs and returns the first function found
+func getEndpointCredentialProviderOptions(ctx context.Context, configs configs) (f func(*endpointcreds.Options), found bool, err error) {
 	for _, config := range configs {
-		if p, ok := config.(EndpointCredentialProviderOptions); ok {
-			f, found, err = p.GetEndpointCredentialProviderOptions()
-			if err != nil {
-				return nil, false, err
-			}
-			if found {
+		if p, ok := config.(endpointCredentialOptionsProvider); ok {
+			f, found, err = p.getEndpointCredentialOptions(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-	return f, found, err
+	return
 }
 
-// WebIdentityCredentialProviderOptions is an interface for retrieving a function for setting
-// the stscreds.WebIdentityCredentialProviderOptions.
-type WebIdentityCredentialProviderOptions interface {
-	GetWebIdentityCredentialProviderOptions() (func(*stscreds.WebIdentityRoleOptions), bool, error)
+// webIdentityRoleCredentialOptionsProvider is an interface for retrieving a function for setting
+// the stscreds.WebIdentityRoleProvider.
+type webIdentityRoleCredentialOptionsProvider interface {
+	getWebIdentityRoleCredentialOptions(ctx context.Context) (func(*stscreds.WebIdentityRoleOptions), bool, error)
 }
 
-// WithWebIdentityCredentialProviderOptions wraps a function and satisfies the EC2RoleCredentialProviderOptions interface
-type WithWebIdentityCredentialProviderOptions func(*stscreds.WebIdentityRoleOptions)
-
-// GetWebIdentityCredentialProviderOptions returns the wrapped function
-func (w WithWebIdentityCredentialProviderOptions) GetWebIdentityCredentialProviderOptions() (func(*stscreds.WebIdentityRoleOptions), bool, error) {
-	return w, true, nil
-}
-
-// GetWebIdentityCredentialProviderOptions searches the slice of configs and returns the first function found
-func GetWebIdentityCredentialProviderOptions(configs Configs) (f func(*stscreds.WebIdentityRoleOptions), found bool, err error) {
+// getWebIdentityCredentialProviderOptions searches the slice of configs and returns the first function found
+func getWebIdentityCredentialProviderOptions(ctx context.Context, configs configs) (f func(*stscreds.WebIdentityRoleOptions), found bool, err error) {
 	for _, config := range configs {
-		if p, ok := config.(WebIdentityCredentialProviderOptions); ok {
-			f, found, err = p.GetWebIdentityCredentialProviderOptions()
-			if err != nil {
-				return nil, false, err
-			}
-			if found {
+		if p, ok := config.(webIdentityRoleCredentialOptionsProvider); ok {
+			f, found, err = p.getWebIdentityRoleCredentialOptions(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-	return f, found, err
+	return
 }
 
-// AssumeRoleCredentialProviderOptions is an interface for retrieving a function for setting
-// the stscreds.AssumeRoleProviderOptions.
-type AssumeRoleCredentialProviderOptions interface {
-	GetAssumeRoleCredentialProviderOptions() (func(*stscreds.AssumeRoleOptions), bool, error)
+// assumeRoleCredentialOptionsProvider is an interface for retrieving a function for setting
+// the stscreds.AssumeRoleOptions.
+type assumeRoleCredentialOptionsProvider interface {
+	getAssumeRoleCredentialOptions(ctx context.Context) (func(*stscreds.AssumeRoleOptions), bool, error)
 }
 
-// WithAssumeRoleCredentialProviderOptions wraps a function and satisfies the EC2RoleCredentialProviderOptions interface
-type WithAssumeRoleCredentialProviderOptions func(*stscreds.AssumeRoleOptions)
-
-// GetAssumeRoleCredentialProviderOptions returns the wrapped function
-func (w WithAssumeRoleCredentialProviderOptions) GetAssumeRoleCredentialProviderOptions() (func(*stscreds.AssumeRoleOptions), bool, error) {
-	return w, true, nil
-}
-
-// GetAssumeRoleCredentialProviderOptions searches the slice of configs and returns the first function found
-func GetAssumeRoleCredentialProviderOptions(configs Configs) (f func(*stscreds.AssumeRoleOptions), found bool, err error) {
+// getAssumeRoleCredentialProviderOptions searches the slice of configs and returns the first function found
+func getAssumeRoleCredentialProviderOptions(ctx context.Context, configs configs) (f func(*stscreds.AssumeRoleOptions), found bool, err error) {
 	for _, config := range configs {
-		if p, ok := config.(AssumeRoleCredentialProviderOptions); ok {
-			f, found, err = p.GetAssumeRoleCredentialProviderOptions()
-			if err != nil {
-				return nil, false, err
-			}
-			if found {
+		if p, ok := config.(assumeRoleCredentialOptionsProvider); ok {
+			f, found, err = p.getAssumeRoleCredentialOptions(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-	return f, found, err
+	return
 }
 
 // HTTPClient is an HTTP client implementation
@@ -452,94 +371,231 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// HTTPClientProvider is an interface for retrieving an HTTPClient.
-type HTTPClientProvider interface {
-	GetHTTPClient() (HTTPClient, bool, error)
+// httpClientProvider is an interface for retrieving HTTPClient
+type httpClientProvider interface {
+	getHTTPClient(ctx context.Context) (HTTPClient, bool, error)
 }
 
-// WithHTTPClient wraps a HTTPClient and satisfies the HTTPClientProvider interface
-type WithHTTPClient struct {
-	HTTPClient
-}
-
-// GetHTTPClient returns the wrapped HTTPClient. Returns an error if the wrapped client is nil.
-func (w WithHTTPClient) GetHTTPClient() (HTTPClient, bool, error) {
-	if w.HTTPClient == nil {
-		return nil, false, fmt.Errorf("http client must not be nil")
-	}
-	return w.HTTPClient, true, nil
-}
-
-// GetHTTPClient searches the slice of configs and returns the first HTTPClient found.
-func GetHTTPClient(configs Configs) (c HTTPClient, found bool, err error) {
+// getHTTPClient searches the slice of configs and returns the HTTPClient set on configs
+func getHTTPClient(ctx context.Context, configs configs) (client HTTPClient, found bool, err error) {
 	for _, config := range configs {
-		if p, ok := config.(HTTPClientProvider); ok {
-			c, found, err = p.GetHTTPClient()
-			if err != nil {
-				return nil, false, err
-			}
-			if found {
+		if p, ok := config.(httpClientProvider); ok {
+			client, found, err = p.getHTTPClient(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-	return c, found, err
+	return
 }
 
-// APIOptionsProvider is an interface for retrieving APIOptions.
-type APIOptionsProvider interface {
-	GetAPIOptions() ([]func(*middleware.Stack) error, bool, error)
+// apiOptionsProvider is an interface for retrieving APIOptions
+type apiOptionsProvider interface {
+	getAPIOptions(ctx context.Context) ([]func(*middleware.Stack) error, bool, error)
 }
 
-// WithAPIOptions wraps a slice of middlewares stack mutators and satisfies the APIOptionsProvider interface.
-type WithAPIOptions []func(*middleware.Stack) error
-
-// GetAPIOptions returns the wrapped middleware stack mutators.
-func (w WithAPIOptions) GetAPIOptions() ([]func(*middleware.Stack) error, bool, error) {
-	return w, true, nil
-}
-
-// GetAPIOptions searches the slice of configs and returns the first APIOptions found.
-func GetAPIOptions(configs Configs) (o []func(*middleware.Stack) error, found bool, err error) {
+// getAPIOptions searches the slice of configs and returns the APIOptions set on configs
+func getAPIOptions(ctx context.Context, configs configs) (apiOptions []func(*middleware.Stack) error, found bool, err error) {
 	for _, config := range configs {
-		if p, ok := config.(APIOptionsProvider); ok {
-			o, found, err = p.GetAPIOptions()
-			if err != nil {
-				return nil, false, err
-			}
-			if found {
+		if p, ok := config.(apiOptionsProvider); ok {
+			// retrieve APIOptions from configs and set it on cfg
+			apiOptions, found, err = p.getAPIOptions(ctx)
+			if err != nil || found {
 				break
 			}
 		}
 	}
-	return o, found, err
+	return
 }
 
-// EndpointResolverFuncProvider is an interface for retrieving an aws.EndpointResolver from a configuration source
-type EndpointResolverFuncProvider interface {
-	GetEndpointResolver() (aws.EndpointResolver, bool, error)
+// endpointResolverProvider is an interface for retrieving an aws.EndpointResolver from a configuration source
+type endpointResolverProvider interface {
+	getEndpointResolver(ctx context.Context) (aws.EndpointResolver, bool, error)
 }
 
-// WithEndpointResolver wraps a aws.EndpointResolver value to satisfy the EndpointResolverFuncProvider interface
-type WithEndpointResolver struct {
-	aws.EndpointResolver
-}
-
-// GetEndpointResolver returns the wrapped EndpointResolver
-func (w WithEndpointResolver) GetEndpointResolver() (aws.EndpointResolver, bool, error) {
-	return w.EndpointResolver, true, nil
-}
-
-// GetEndpointResolver searches the provided config sources for a EndpointResolverFunc that can be used
+// getEndpointResolver searches the provided config sources for a EndpointResolverFunc that can be used
 // to configure the aws.Config.EndpointResolver value.
-func GetEndpointResolver(configs Configs) (f aws.EndpointResolver, found bool, err error) {
+func getEndpointResolver(ctx context.Context, configs configs) (f aws.EndpointResolver, found bool, err error) {
 	for _, c := range configs {
-		if p, ok := c.(EndpointResolverFuncProvider); ok {
-			f, found, err = p.GetEndpointResolver()
-			if err != nil {
-				return nil, false, err
+		if p, ok := c.(endpointResolverProvider); ok {
+			f, found, err = p.getEndpointResolver(ctx)
+			if err != nil || found {
+				break
 			}
 		}
 	}
-	return f, found, err
+	return
+}
+
+// endpointResolverWithOptionsProvider is an interface for retrieving an aws.EndpointResolverWithOptions from a configuration source
+type endpointResolverWithOptionsProvider interface {
+	getEndpointResolverWithOptions(ctx context.Context) (aws.EndpointResolverWithOptions, bool, error)
+}
+
+// getEndpointResolver searches the provided config sources for a EndpointResolverFunc that can be used
+// to configure the aws.Config.EndpointResolver value.
+func getEndpointResolverWithOptions(ctx context.Context, configs configs) (f aws.EndpointResolverWithOptions, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(endpointResolverWithOptionsProvider); ok {
+			f, found, err = p.getEndpointResolverWithOptions(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// loggerProvider is an interface for retrieving a logging.Logger from a configuration source.
+type loggerProvider interface {
+	getLogger(ctx context.Context) (logging.Logger, bool, error)
+}
+
+// getLogger searches the provided config sources for a logging.Logger that can be used
+// to configure the aws.Config.Logger value.
+func getLogger(ctx context.Context, configs configs) (l logging.Logger, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(loggerProvider); ok {
+			l, found, err = p.getLogger(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// clientLogModeProvider is an interface for retrieving the aws.ClientLogMode from a configuration source.
+type clientLogModeProvider interface {
+	getClientLogMode(ctx context.Context) (aws.ClientLogMode, bool, error)
+}
+
+func getClientLogMode(ctx context.Context, configs configs) (m aws.ClientLogMode, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(clientLogModeProvider); ok {
+			m, found, err = p.getClientLogMode(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// retryProvider is an configuration provider for custom Retryer.
+type retryProvider interface {
+	getRetryer(ctx context.Context) (func() aws.Retryer, bool, error)
+}
+
+func getRetryer(ctx context.Context, configs configs) (v func() aws.Retryer, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(retryProvider); ok {
+			v, found, err = p.getRetryer(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// logConfigurationWarningsProvider is an configuration provider for
+// retrieving a boolean indicating whether configuration issues should
+// be logged when loading from config sources
+type logConfigurationWarningsProvider interface {
+	getLogConfigurationWarnings(ctx context.Context) (bool, bool, error)
+}
+
+func getLogConfigurationWarnings(ctx context.Context, configs configs) (v bool, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(logConfigurationWarningsProvider); ok {
+			v, found, err = p.getLogConfigurationWarnings(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// ssoCredentialOptionsProvider is an interface for retrieving a function for setting
+// the ssocreds.Options.
+type ssoCredentialOptionsProvider interface {
+	getSSOProviderOptions(context.Context) (func(*ssocreds.Options), bool, error)
+}
+
+func getSSOProviderOptions(ctx context.Context, configs configs) (v func(options *ssocreds.Options), found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(ssoCredentialOptionsProvider); ok {
+			v, found, err = p.getSSOProviderOptions(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return v, found, err
+}
+
+type defaultsModeIMDSClientProvider interface {
+	getDefaultsModeIMDSClient(context.Context) (*imds.Client, bool, error)
+}
+
+func getDefaultsModeIMDSClient(ctx context.Context, configs configs) (v *imds.Client, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(defaultsModeIMDSClientProvider); ok {
+			v, found, err = p.getDefaultsModeIMDSClient(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return v, found, err
+}
+
+type defaultsModeProvider interface {
+	getDefaultsMode(context.Context) (aws.DefaultsMode, bool, error)
+}
+
+func getDefaultsMode(ctx context.Context, configs configs) (v aws.DefaultsMode, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(defaultsModeProvider); ok {
+			v, found, err = p.getDefaultsMode(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return v, found, err
+}
+
+type retryMaxAttemptsProvider interface {
+	GetRetryMaxAttempts(context.Context) (int, bool, error)
+}
+
+func getRetryMaxAttempts(ctx context.Context, configs configs) (v int, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(retryMaxAttemptsProvider); ok {
+			v, found, err = p.GetRetryMaxAttempts(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return v, found, err
+}
+
+type retryModeProvider interface {
+	GetRetryMode(context.Context) (aws.RetryMode, bool, error)
+}
+
+func getRetryMode(ctx context.Context, configs configs) (v aws.RetryMode, found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(retryModeProvider); ok {
+			v, found, err = p.GetRetryMode(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return v, found, err
 }

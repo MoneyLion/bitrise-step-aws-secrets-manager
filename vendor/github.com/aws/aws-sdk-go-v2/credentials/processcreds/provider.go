@@ -55,18 +55,6 @@ type Provider struct {
 
 // Options is the configuration options for configuring the Provider.
 type Options struct {
-	// ExpiryWindow will allow the credentials to trigger refreshing prior to
-	// the credentials actually expiring. This is beneficial so race conditions
-	// with expiring credentials do not cause request to fail unexpectedly
-	// due to ExpiredTokenException exceptions.
-	//
-	// For example, an ExpiryWindow of 10s would cause calls to the
-	// Credentials.IsExpired() method to return true 10 seconds before the
-	// credentials would of actually expired.
-	//
-	// If ExpiryWindow is 0 or less, it will be ignored.
-	ExpiryWindow time.Duration
-
 	// Timeout limits the time a process can run.
 	Timeout time.Duration
 }
@@ -161,12 +149,24 @@ func NewProviderCommand(builder NewCommandBuilder, options ...func(*Options)) *P
 	return p
 }
 
-type credentialProcessResponse struct {
-	Version         int
-	AccessKeyID     string `json:"AccessKeyId"`
+// A CredentialProcessResponse is the AWS credentials format that must be
+// returned when executing an external credential_process.
+type CredentialProcessResponse struct {
+	// As of this writing, the Version key must be set to 1. This might
+	// increment over time as the structure evolves.
+	Version int
+
+	// The access key ID that identifies the temporary security credentials.
+	AccessKeyID string `json:"AccessKeyId"`
+
+	// The secret access key that can be used to sign requests.
 	SecretAccessKey string
-	SessionToken    string
-	Expiration      *time.Time
+
+	// The token that users must pass to the service API to use the temporary credentials.
+	SessionToken string
+
+	// The date on which the current credentials expire.
+	Expiration *time.Time
 }
 
 // Retrieve executes the credential process command and returns the
@@ -178,7 +178,7 @@ func (p *Provider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	}
 
 	// Serialize and validate response
-	resp := &credentialProcessResponse{}
+	resp := &CredentialProcessResponse{}
 	if err = json.Unmarshal(out, resp); err != nil {
 		return aws.Credentials{Source: ProviderName}, &ProviderError{
 			Err: fmt.Errorf("parse failed of process output: %s, error: %w", out, err),
@@ -213,7 +213,7 @@ func (p *Provider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	// Handle expiration
 	if resp.Expiration != nil {
 		creds.CanExpire = true
-		creds.Expires = (*resp.Expiration).Add(-p.options.ExpiryWindow)
+		creds.Expires = *resp.Expiration
 	}
 
 	return creds, nil

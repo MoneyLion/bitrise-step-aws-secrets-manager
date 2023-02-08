@@ -1,5 +1,6 @@
 package v4
 
+// Signature Version 4 (SigV4) Constants
 const (
 	// EmptyStringSHA256 is the hex encoded sha256 value of an empty string
 	EmptyStringSHA256 = `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
@@ -15,9 +16,6 @@ const (
 
 	// AmzDateKey is the UTC timestamp for the request in the format YYYYMMDD'T'HHMMSS'Z'
 	AmzDateKey = "X-Amz-Date"
-
-	// AmzExpiresKey indicates the interval of time the presigned is valid for
-	AmzExpiresKey = "X-Amz-Expires"
 
 	// AmzCredentialKey is the access key ID and credential scope
 	AmzCredentialKey = "X-Amz-Credential"
@@ -36,4 +34,7 @@ const (
 
 	// ContentSHAKey is the SHA256 of request body
 	ContentSHAKey = "X-Amz-Content-Sha256"
+
+	// StreamingEventsPayload indicates that the request payload body is a signed event stream.
+	StreamingEventsPayload = "STREAMING-AWS4-HMAC-SHA256-EVENTS"
 )

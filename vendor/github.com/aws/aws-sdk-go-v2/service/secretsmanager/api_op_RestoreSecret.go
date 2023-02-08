@@ -5,60 +5,32 @@ package secretsmanager
 import (
 	"context"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	smithy "github.com/awslabs/smithy-go"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Cancels the scheduled deletion of a secret by removing the DeletedDate time
-// stamp. This makes the secret accessible to query once again. Minimum permissions
-// To run this command, you must have the following permissions:
-//
-//     *
-// secretsmanager:RestoreSecret
-//
-// Related operations
-//
-//     * To delete a secret, use
-// DeleteSecret ().
+// stamp. You can access a secret again after it has been restored. Secrets Manager
+// generates a CloudTrail log entry when you call this action. Do not include
+// sensitive information in request parameters because it might be logged. For more
+// information, see Logging Secrets Manager events with CloudTrail
+// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieve-ct-entries.html).
+// Required permissions: secretsmanager:RestoreSecret. For more information, see
+// IAM policy actions for Secrets Manager
+// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_iam-permissions.html#reference_iam-permissions_actions)
+// and Authentication and access control in Secrets Manager
+// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html).
 func (c *Client) RestoreSecret(ctx context.Context, params *RestoreSecretInput, optFns ...func(*Options)) (*RestoreSecretOutput, error) {
-	stack := middleware.NewStack("RestoreSecret", smithyhttp.NewStackRequest)
-	options := c.options.Copy()
-	for _, fn := range optFns {
-		fn(&options)
+	if params == nil {
+		params = &RestoreSecretInput{}
 	}
-	addawsAwsjson11_serdeOpRestoreSecretMiddlewares(stack)
-	awsmiddleware.AddRequestInvocationIDMiddleware(stack)
-	smithyhttp.AddContentLengthMiddleware(stack)
-	AddResolveEndpointMiddleware(stack, options)
-	v4.AddComputePayloadSHA256Middleware(stack)
-	retry.AddRetryMiddlewares(stack, options)
-	addHTTPSignerV4Middleware(stack, options)
-	awsmiddleware.AddAttemptClockSkewMiddleware(stack)
-	addClientUserAgent(stack)
-	smithyhttp.AddErrorCloseResponseBodyMiddleware(stack)
-	smithyhttp.AddCloseResponseBodyMiddleware(stack)
-	addOpRestoreSecretValidationMiddleware(stack)
-	stack.Initialize.Add(newServiceMetadataMiddleware_opRestoreSecret(options.Region), middleware.Before)
-	addRequestIDRetrieverMiddleware(stack)
-	addResponseErrorMiddleware(stack)
 
-	for _, fn := range options.APIOptions {
-		if err := fn(stack); err != nil {
-			return nil, err
-		}
-	}
-	handler := middleware.DecorateHandler(smithyhttp.NewClientHandler(options.HTTPClient), stack)
-	result, metadata, err := handler.Handle(ctx, params)
+	result, metadata, err := c.invokeOperation(ctx, "RestoreSecret", params, optFns, c.addOperationRestoreSecretMiddlewares)
 	if err != nil {
-		return nil, &smithy.OperationError{
-			ServiceID:     ServiceID,
-			OperationName: "RestoreSecret",
-			Err:           err,
-		}
+		return nil, err
 	}
+
 	out := result.(*RestoreSecretOutput)
 	out.ResultMetadata = metadata
 	return out, nil
@@ -66,26 +38,15 @@ func (c *Client) RestoreSecret(ctx context.Context, params *RestoreSecretInput, 
 
 type RestoreSecretInput struct {
 
-	// Specifies the secret that you want to restore from a previously scheduled
-	// deletion. You can specify either the Amazon Resource Name (ARN) or the friendly
-	// name of the secret. If you specify an ARN, we generally recommend that you
-	// specify a complete ARN. You can specify a partial ARN too—for example, if you
-	// don’t include the final hyphen and six random characters that Secrets Manager
-	// adds at the end of the ARN when you created the secret. A partial ARN match can
-	// work as long as it uniquely matches only one secret. However, if your secret has
-	// a name that ends in a hyphen followed by six characters (before Secrets Manager
-	// adds the hyphen and six characters to the ARN) and you try to use that as a
-	// partial ARN, then those characters cause Secrets Manager to assume that you’re
-	// specifying a complete ARN. This confusion can cause unexpected results. To avoid
-	// this situation, we recommend that you don’t create secret names ending with a
-	// hyphen followed by six characters. If you specify an incomplete ARN without the
-	// random suffix, and instead provide the 'friendly name', you must not include the
-	// random suffix. If you do include the random suffix added by Secrets Manager, you
-	// receive either a ResourceNotFoundException or an AccessDeniedException error,
-	// depending on your permissions.
+	// The ARN or name of the secret to restore. For an ARN, we recommend that you
+	// specify a complete ARN rather than a partial ARN. See Finding a secret from a
+	// partial ARN
+	// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/troubleshoot.html#ARN_secretnamehyphen).
 	//
 	// This member is required.
 	SecretId *string
+
+	noSmithyDocumentSerde
 }
 
 type RestoreSecretOutput struct {
@@ -93,20 +54,80 @@ type RestoreSecretOutput struct {
 	// The ARN of the secret that was restored.
 	ARN *string
 
-	// The friendly name of the secret that was restored.
+	// The name of the secret that was restored.
 	Name *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addawsAwsjson11_serdeOpRestoreSecretMiddlewares(stack *middleware.Stack) {
-	stack.Serialize.Add(&awsAwsjson11_serializeOpRestoreSecret{}, middleware.After)
-	stack.Deserialize.Add(&awsAwsjson11_deserializeOpRestoreSecret{}, middleware.After)
+func (c *Client) addOperationRestoreSecretMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	err = stack.Serialize.Add(&awsAwsjson11_serializeOpRestoreSecret{}, middleware.After)
+	if err != nil {
+		return err
+	}
+	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpRestoreSecret{}, middleware.After)
+	if err != nil {
+		return err
+	}
+	if err = addSetLoggerMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addResolveEndpointMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+		return err
+	}
+	if err = addRetryMiddlewares(stack, options); err != nil {
+		return err
+	}
+	if err = addHTTPSignerV4Middleware(stack, options); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addClientUserAgent(stack); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addOpRestoreSecretValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRestoreSecret(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addResponseErrorMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addRequestResponseLogging(stack, options); err != nil {
+		return err
+	}
+	return nil
 }
 
-func newServiceMetadataMiddleware_opRestoreSecret(region string) awsmiddleware.RegisterServiceMetadata {
-	return awsmiddleware.RegisterServiceMetadata{
+func newServiceMetadataMiddleware_opRestoreSecret(region string) *awsmiddleware.RegisterServiceMetadata {
+	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
 		SigningName:   "secretsmanager",

@@ -5,8 +5,8 @@ package secretsmanager
 import (
 	"context"
 	"fmt"
-	smithy "github.com/awslabs/smithy-go"
-	"github.com/awslabs/smithy-go/middleware"
+	smithy "github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/middleware"
 )
 
 type validateOpCancelRotateSecret struct {
@@ -209,6 +209,46 @@ func (m *validateOpPutSecretValue) HandleInitialize(ctx context.Context, in midd
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpRemoveRegionsFromReplication struct {
+}
+
+func (*validateOpRemoveRegionsFromReplication) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpRemoveRegionsFromReplication) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*RemoveRegionsFromReplicationInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpRemoveRegionsFromReplicationInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpReplicateSecretToRegions struct {
+}
+
+func (*validateOpReplicateSecretToRegions) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpReplicateSecretToRegions) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ReplicateSecretToRegionsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpReplicateSecretToRegionsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpRestoreSecret struct {
 }
 
@@ -244,6 +284,26 @@ func (m *validateOpRotateSecret) HandleInitialize(ctx context.Context, in middle
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpRotateSecretInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpStopReplicationToReplica struct {
+}
+
+func (*validateOpStopReplicationToReplica) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpStopReplicationToReplica) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*StopReplicationToReplicaInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpStopReplicationToReplicaInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -389,12 +449,24 @@ func addOpPutSecretValueValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpPutSecretValue{}, middleware.After)
 }
 
+func addOpRemoveRegionsFromReplicationValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpRemoveRegionsFromReplication{}, middleware.After)
+}
+
+func addOpReplicateSecretToRegionsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpReplicateSecretToRegions{}, middleware.After)
+}
+
 func addOpRestoreSecretValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpRestoreSecret{}, middleware.After)
 }
 
 func addOpRotateSecretValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpRotateSecret{}, middleware.After)
+}
+
+func addOpStopReplicationToReplicaValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpStopReplicationToReplica{}, middleware.After)
 }
 
 func addOpTagResourceValidationMiddleware(stack *middleware.Stack) error {
@@ -542,11 +614,11 @@ func validateOpPutResourcePolicyInput(v *PutResourcePolicyInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "PutResourcePolicyInput"}
-	if v.ResourcePolicy == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("ResourcePolicy"))
-	}
 	if v.SecretId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SecretId"))
+	}
+	if v.ResourcePolicy == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ResourcePolicy"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -562,6 +634,42 @@ func validateOpPutSecretValueInput(v *PutSecretValueInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "PutSecretValueInput"}
 	if v.SecretId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SecretId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpRemoveRegionsFromReplicationInput(v *RemoveRegionsFromReplicationInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "RemoveRegionsFromReplicationInput"}
+	if v.SecretId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SecretId"))
+	}
+	if v.RemoveReplicaRegions == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("RemoveReplicaRegions"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpReplicateSecretToRegionsInput(v *ReplicateSecretToRegionsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ReplicateSecretToRegionsInput"}
+	if v.SecretId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SecretId"))
+	}
+	if v.AddReplicaRegions == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("AddReplicaRegions"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -600,6 +708,21 @@ func validateOpRotateSecretInput(v *RotateSecretInput) error {
 	}
 }
 
+func validateOpStopReplicationToReplicaInput(v *StopReplicationToReplicaInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "StopReplicationToReplicaInput"}
+	if v.SecretId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SecretId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpTagResourceInput(v *TagResourceInput) error {
 	if v == nil {
 		return nil
@@ -623,11 +746,11 @@ func validateOpUntagResourceInput(v *UntagResourceInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "UntagResourceInput"}
-	if v.TagKeys == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("TagKeys"))
-	}
 	if v.SecretId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SecretId"))
+	}
+	if v.TagKeys == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TagKeys"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

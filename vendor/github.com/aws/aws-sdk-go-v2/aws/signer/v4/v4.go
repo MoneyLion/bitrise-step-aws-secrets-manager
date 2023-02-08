@@ -3,20 +3,22 @@
 // Provides request signing for request that need to be signed with
 // AWS V4 Signatures.
 //
-// Standalone Signer
+// # Standalone Signer
 //
 // Generally using the signer outside of the SDK should not require any additional
-//  The signer does this by taking advantage of the URL.EscapedPath method. If your request URI requires
+//
+//	The signer does this by taking advantage of the URL.EscapedPath method. If your request URI requires
+//
 // additional escaping you many need to use the URL.Opaque to define what the raw URI should be sent
 // to the service as.
 //
 // The signer will first check the URL.Opaque field, and use its value if set.
 // The signer does require the URL.Opaque field to be set in the form of:
 //
-//     "//<hostname>/<path>"
+//	"//<hostname>/<path>"
 //
-//     // e.g.
-//     "//example.com/some/path"
+//	// e.g.
+//	"//example.com/some/path"
 //
 // The leading "//" and hostname are required or the URL.Opaque escaping will
 // not work correctly.
@@ -47,8 +49,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"hash"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"sort"
 	"strconv"
@@ -57,7 +61,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4Internal "github.com/aws/aws-sdk-go-v2/aws/signer/internal/v4"
-	"github.com/awslabs/smithy-go/httpbinding"
+	"github.com/aws/smithy-go/encoding/httpbinding"
+	"github.com/aws/smithy-go/logging"
 )
 
 const (
@@ -67,16 +72,15 @@ const (
 
 // HTTPSigner is an interface to a SigV4 signer that can sign HTTP requests
 type HTTPSigner interface {
-	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time) error
+	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time, optFns ...func(*SignerOptions)) error
 }
 
 type keyDerivator interface {
 	DeriveKey(credential aws.Credentials, service, region string, signingTime v4Internal.SigningTime) []byte
 }
 
-// Signer applies AWS v4 signing to given request. Use this to sign requests
-// that need to be signed with AWS V4 Signatures.
-type Signer struct {
+// SignerOptions is the SigV4 Signer options.
+type SignerOptions struct {
 	// Disables the Signer's moving HTTP header key/value pairs from the HTTP
 	// request header to the request's query string. This is most commonly used
 	// with pre-signed requests preventing headers from being added to the
@@ -92,18 +96,31 @@ type Signer struct {
 	// http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
 	DisableURIPathEscaping bool
 
+	// The logger to send log messages to.
+	Logger logging.Logger
+
+	// Enable logging of signed requests.
+	// This will enable logging of the canonical request, the string to sign, and for presigning the subsequent
+	// presigned URL.
+	LogSigning bool
+}
+
+// Signer applies AWS v4 signing to given request. Use this to sign requests
+// that need to be signed with AWS V4 Signatures.
+type Signer struct {
+	options      SignerOptions
 	keyDerivator keyDerivator
 }
 
 // NewSigner returns a new SigV4 Signer
-func NewSigner(optFns ...func(signer *Signer)) *Signer {
-	s := &Signer{keyDerivator: v4Internal.NewSigningKeyDeriver()}
+func NewSigner(optFns ...func(signer *SignerOptions)) *Signer {
+	options := SignerOptions{}
 
 	for _, fn := range optFns {
-		fn(s)
+		fn(&options)
 	}
 
-	return s
+	return &Signer{options: options, keyDerivator: v4Internal.NewSigningKeyDeriver()}
 }
 
 type httpSigner struct {
@@ -111,14 +128,10 @@ type httpSigner struct {
 	ServiceName  string
 	Region       string
 	Time         v4Internal.SigningTime
-	ExpireTime   time.Duration
 	Credentials  aws.Credentials
 	KeyDerivator keyDerivator
 	IsPreSign    bool
 
-	// PayloadHash is the hex encoded SHA-256 hash of the request payload
-	// If len(PayloadHash) == 0 the signer will attempt to send the request
-	// as an unsigned payload. Note: Unsigned payloads only work for a subset of services.
 	PayloadHash string
 
 	DisableHeaderHoisting  bool
@@ -236,13 +249,32 @@ func buildAuthorizationHeader(credentialStr, signedHeadersStr, signingSignature 
 // you to specify that a request is signed for the future, and cannot be
 // used until then.
 //
+// The payloadHash is the hex encoded SHA-256 hash of the request payload, and
+// must be provided. Even if the request has no payload (aka body). If the
+// request has no payload you should use the hex encoded SHA-256 of an empty
+// string as the payloadHash value.
+//
+//	"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+//
+// Some services such as Amazon S3 accept alternative values for the payload
+// hash, such as "UNSIGNED-PAYLOAD" for requests where the body will not be
+// included in the request signature.
+//
+// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+//
 // Sign differs from Presign in that it will sign the request using HTTP
 // header values. This type of signing is intended for http.Request values that
 // will not be shared, or are shared in a way the header values on the request
 // will not be lost.
 //
 // The passed in request will be modified in place.
-func (v4 Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time) error {
+func (s Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time, optFns ...func(options *SignerOptions)) error {
+	options := s.options
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
 	signer := &httpSigner{
 		Request:                r,
 		PayloadHash:            payloadHash,
@@ -250,15 +282,17 @@ func (v4 Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *h
 		Region:                 region,
 		Credentials:            credentials,
 		Time:                   v4Internal.NewSigningTime(signingTime.UTC()),
-		DisableHeaderHoisting:  v4.DisableHeaderHoisting,
-		DisableURIPathEscaping: v4.DisableURIPathEscaping,
-		KeyDerivator:           v4.keyDerivator,
+		DisableHeaderHoisting:  options.DisableHeaderHoisting,
+		DisableURIPathEscaping: options.DisableURIPathEscaping,
+		KeyDerivator:           s.keyDerivator,
 	}
 
-	_, err := signer.Build()
+	signedRequest, err := signer.Build()
 	if err != nil {
 		return err
 	}
+
+	logSigningInfo(ctx, options, &signedRequest, false)
 
 	return nil
 }
@@ -268,23 +302,54 @@ func (v4 Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *h
 // allows you to specify that a request is signed for the future, and cannot
 // be used until then.
 //
-// Returns the signed URL and the map of HTTP headers that were included in the signature or an
-// error if signing the request failed. For presigned requests these headers
-// and their values must be included on the HTTP request when it is made. This
-// is helpful to know what header values need to be shared with the party the
-// presigned request will be distributed to.
+// Returns the signed URL and the map of HTTP headers that were included in the
+// signature or an error if signing the request failed. For presigned requests
+// these headers and their values must be included on the HTTP request when it
+// is made. This is helpful to know what header values need to be shared with
+// the party the presigned request will be distributed to.
 //
-// PresignHTTP differs from SignHTTP in that it will sign the request using query string
-// instead of header values. This allows you to share the Presigned Request's
-// URL with third parties, or distribute it throughout your system with minimal
-// dependencies.
+// The payloadHash is the hex encoded SHA-256 hash of the request payload, and
+// must be provided. Even if the request has no payload (aka body). If the
+// request has no payload you should use the hex encoded SHA-256 of an empty
+// string as the payloadHash value.
 //
-// PresignHTTP also takes an exp value which is the duration the
-// signed request will be valid after the signing time. This is allows you to
-// set when the request will expire.
+//	"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+//
+// Some services such as Amazon S3 accept alternative values for the payload
+// hash, such as "UNSIGNED-PAYLOAD" for requests where the body will not be
+// included in the request signature.
+//
+// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+//
+// PresignHTTP differs from SignHTTP in that it will sign the request using
+// query string instead of header values. This allows you to share the
+// Presigned Request's URL with third parties, or distribute it throughout your
+// system with minimal dependencies.
+//
+// PresignHTTP will not set the expires time of the presigned request
+// automatically. To specify the expire duration for a request add the
+// "X-Amz-Expires" query parameter on the request with the value as the
+// duration in seconds the presigned URL should be considered valid for. This
+// parameter is not used by all AWS services, and is most notable used by
+// Amazon S3 APIs.
+//
+//	expires := 20 * time.Minute
+//	query := req.URL.Query()
+//	query.Set("X-Amz-Expires", strconv.FormatInt(int64(expires/time.Second), 10)
+//	req.URL.RawQuery = query.Encode()
 //
 // This method does not modify the provided request.
-func (v4 *Signer) PresignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, expireTime time.Duration, signingTime time.Time) (signedURI string, signedHeaders http.Header, err error) {
+func (s *Signer) PresignHTTP(
+	ctx context.Context, credentials aws.Credentials, r *http.Request,
+	payloadHash string, service string, region string, signingTime time.Time,
+	optFns ...func(*SignerOptions),
+) (signedURI string, signedHeaders http.Header, err error) {
+	options := s.options
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
 	signer := &httpSigner{
 		Request:                r.Clone(r.Context()),
 		PayloadHash:            payloadHash,
@@ -293,10 +358,9 @@ func (v4 *Signer) PresignHTTP(ctx context.Context, credentials aws.Credentials, 
 		Credentials:            credentials,
 		Time:                   v4Internal.NewSigningTime(signingTime.UTC()),
 		IsPreSign:              true,
-		ExpireTime:             expireTime,
-		DisableHeaderHoisting:  v4.DisableHeaderHoisting,
-		DisableURIPathEscaping: v4.DisableURIPathEscaping,
-		KeyDerivator:           v4.keyDerivator,
+		DisableHeaderHoisting:  options.DisableHeaderHoisting,
+		DisableURIPathEscaping: options.DisableURIPathEscaping,
+		KeyDerivator:           s.keyDerivator,
 	}
 
 	signedRequest, err := signer.Build()
@@ -304,16 +368,23 @@ func (v4 *Signer) PresignHTTP(ctx context.Context, credentials aws.Credentials, 
 		return "", nil, err
 	}
 
-	return signedRequest.Request.URL.String(), signedRequest.SignedHeaders, nil
+	logSigningInfo(ctx, options, &signedRequest, true)
+
+	signedHeaders = make(http.Header)
+
+	// For the signed headers we canonicalize the header keys in the returned map.
+	// This avoids situations where can standard library double headers like host header. For example the standard
+	// library will set the Host header, even if it is present in lower-case form.
+	for k, v := range signedRequest.SignedHeaders {
+		key := textproto.CanonicalMIMEHeaderKey(k)
+		signedHeaders[key] = append(signedHeaders[key], v...)
+	}
+
+	return signedRequest.Request.URL.String(), signedHeaders, nil
 }
 
 func (s *httpSigner) buildCredentialScope() string {
-	return strings.Join([]string{
-		s.Time.ShortTimeFormat(),
-		s.Region,
-		s.ServiceName,
-		"aws4_request",
-	}, "/")
+	return v4Internal.BuildCredentialScope(s.Time, s.Region, s.ServiceName)
 }
 
 func buildQuery(r v4Internal.Rule, header http.Header) (url.Values, http.Header) {
@@ -338,8 +409,8 @@ func (s *httpSigner) buildCanonicalHeaders(host string, rule v4Internal.Rule, he
 	headers = append(headers, hostHeader)
 	signed[hostHeader] = append(signed[hostHeader], host)
 
+	const contentLengthHeader = "content-length"
 	if length > 0 {
-		const contentLengthHeader = "content-length"
 		headers = append(headers, contentLengthHeader)
 		signed[contentLengthHeader] = append(signed[contentLengthHeader], strconv.FormatInt(length, 10))
 	}
@@ -347,6 +418,10 @@ func (s *httpSigner) buildCanonicalHeaders(host string, rule v4Internal.Rule, he
 	for k, v := range header {
 		if !rule.IsValid(k) {
 			continue // ignored header
+		}
+		if strings.EqualFold(k, contentLengthHeader) {
+			// prevent signing already handled content-length header.
+			continue
 		}
 
 		lowerCaseKey := strings.ToLower(k)
@@ -374,7 +449,15 @@ func (s *httpSigner) buildCanonicalHeaders(host string, rule v4Internal.Rule, he
 		} else {
 			canonicalHeaders.WriteString(headers[i])
 			canonicalHeaders.WriteRune(colon)
-			canonicalHeaders.WriteString(strings.Join(signed[headers[i]], ","))
+			// Trim out leading, trailing, and dedup inner spaces from signed header values.
+			values := signed[headers[i]]
+			for j, v := range values {
+				cleanedValue := strings.TrimSpace(v4Internal.StripExcessSpaces(v))
+				canonicalHeaders.WriteString(cleanedValue)
+				if j < len(values)-1 {
+					canonicalHeaders.WriteRune(',')
+				}
+			}
 		}
 		canonicalHeaders.WriteRune('\n')
 	}
@@ -423,9 +506,7 @@ func (s *httpSigner) setRequiredSigningFields(headers http.Header, query url.Val
 			query.Set("X-Amz-Security-Token", sessionToken)
 		}
 
-		duration := int64(s.ExpireTime / time.Second)
 		query.Set(v4Internal.AmzDateKey, amzDate)
-		query.Set(v4Internal.AmzExpiresKey, strconv.FormatInt(duration, 10))
 		return
 	}
 
@@ -436,6 +517,18 @@ func (s *httpSigner) setRequiredSigningFields(headers http.Header, query url.Val
 	}
 }
 
+func logSigningInfo(ctx context.Context, options SignerOptions, request *signedRequest, isPresign bool) {
+	if !options.LogSigning {
+		return
+	}
+	signedURLMsg := ""
+	if isPresign {
+		signedURLMsg = fmt.Sprintf(logSignedURLMsg, request.Request.URL.String())
+	}
+	logger := logging.WithContext(ctx, options.Logger)
+	logger.Logf(logging.Debug, logSignInfoMsg, request.CanonicalString, request.StringToSign, signedURLMsg)
+}
+
 type signedRequest struct {
 	Request         *http.Request
 	SignedHeaders   http.Header
@@ -443,3 +536,13 @@ type signedRequest struct {
 	StringToSign    string
 	PreSigned       bool
 }
+
+const logSignInfoMsg = `Request Signature:
+---[ CANONICAL STRING  ]-----------------------------
+%s
+---[ STRING TO SIGN ]--------------------------------
+%s%s
+-----------------------------------------------------`
+const logSignedURLMsg = `
+---[ SIGNED URL ]------------------------------------
+%s`

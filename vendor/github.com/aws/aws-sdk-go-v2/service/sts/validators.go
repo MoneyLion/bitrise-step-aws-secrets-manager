@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
-	smithy "github.com/awslabs/smithy-go"
-	"github.com/awslabs/smithy-go/middleware"
+	smithy "github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/middleware"
 )
 
 type validateOpAssumeRole struct {
@@ -159,11 +159,11 @@ func validateTag(v *types.Tag) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "Tag"}
-	if v.Value == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Value"))
-	}
 	if v.Key == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Key"))
+	}
+	if v.Value == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Value"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -172,13 +172,13 @@ func validateTag(v *types.Tag) error {
 	}
 }
 
-func validateTagListType(v []*types.Tag) error {
+func validateTagListType(v []types.Tag) error {
 	if v == nil {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "TagListType"}
 	for i := range v {
-		if err := validateTag(v[i]); err != nil {
+		if err := validateTag(&v[i]); err != nil {
 			invalidParams.AddNested(fmt.Sprintf("[%d]", i), err.(smithy.InvalidParamsError))
 		}
 	}
@@ -194,6 +194,9 @@ func validateOpAssumeRoleInput(v *AssumeRoleInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "AssumeRoleInput"}
+	if v.RoleArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("RoleArn"))
+	}
 	if v.RoleSessionName == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("RoleSessionName"))
 	}
@@ -201,9 +204,6 @@ func validateOpAssumeRoleInput(v *AssumeRoleInput) error {
 		if err := validateTagListType(v.Tags); err != nil {
 			invalidParams.AddNested("Tags", err.(smithy.InvalidParamsError))
 		}
-	}
-	if v.RoleArn == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("RoleArn"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -217,11 +217,11 @@ func validateOpAssumeRoleWithSAMLInput(v *AssumeRoleWithSAMLInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "AssumeRoleWithSAMLInput"}
-	if v.PrincipalArn == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("PrincipalArn"))
-	}
 	if v.RoleArn == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("RoleArn"))
+	}
+	if v.PrincipalArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("PrincipalArn"))
 	}
 	if v.SAMLAssertion == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SAMLAssertion"))

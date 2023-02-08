@@ -40,18 +40,22 @@ func prepareAwsConfig(sinput stepInput) (awsConfig aws.Config, err error) {
 	if sinput.awsAccessKeyId != "" && sinput.awsSecretAccessKey != "" && sinput.awsDefaultRegion != "" {
 		fmt.Println("Loading AWS config using static credentials")
 		awsConfig, err = config.LoadDefaultConfig(
+			context.Background(),
 			config.WithRegion(sinput.awsDefaultRegion),
-			config.WithCredentialsProvider{
-				CredentialsProvider: credentials.NewStaticCredentialsProvider(
+			config.WithCredentialsProvider(
+				credentials.NewStaticCredentialsProvider(
 					sinput.awsAccessKeyId,
 					sinput.awsSecretAccessKey,
 					"",
 				),
-			})
+			),
+		)
 	} else if sinput.awsProfile != "" {
 		fmt.Println("Loading AWS config using named profile")
 		awsConfig, err = config.LoadDefaultConfig(
-			config.WithSharedConfigProfile(sinput.awsProfile))
+			context.Background(),
+			config.WithSharedConfigProfile(sinput.awsProfile),
+		)
 	} else {
 		err = errors.New("Incomplete AWS configuration. Specify AWS static credentials and region, or an AWS named profile for shared configuration, via the Step's input.")
 	}
@@ -62,7 +66,7 @@ func prepareAwsConfig(sinput stepInput) (awsConfig aws.Config, err error) {
 func assumeRole(sinput stepInput, awsConfig *aws.Config) {
 	stsSvc := sts.NewFromConfig(*awsConfig)
 	creds := stscreds.NewAssumeRoleProvider(stsSvc, sinput.awsIamRoleArn)
-	awsConfig.Credentials = &aws.CredentialsCache{Provider: creds}
+	awsConfig.Credentials = aws.NewCredentialsCache(creds)
 	return
 }
 
@@ -140,8 +144,8 @@ func exportEnvVar(value string, envVarKey string) (err error) {
 }
 
 func IsJSON(str string) bool {
-    var js json.RawMessage
-    return json.Unmarshal([]byte(str), &js) == nil
+	var js json.RawMessage
+	return json.Unmarshal([]byte(str), &js) == nil
 }
 
 func main() {
