@@ -146,6 +146,8 @@ Ensure the following is installed:
 
   1. Bump the `BITRISE_STEP_VERSION` in [bitrise.yml](./bitrise.yml).
 
+  1. Create a new release in [changelog](./CHANGELOG.md).
+
   1. Make a commit.
 
   1. Create an annotated Git tag.
